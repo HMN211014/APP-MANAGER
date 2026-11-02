@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Administrador de cuentas</title>
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#fafaf8;--fg:#1b1b1a;--mut:#8b8b86;--line:#ebeae6;--fill:#f1f0ec;
+  --ok:#2f8f5b;--warn:#c27f12;--bad:#c94b4b;--info:#4f6bd8;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121211;--fg:#ecece8;--mut:#8e8e88;--line:#242422;--fill:#1b1b1a;
+    --ok:#4cc48a;--warn:#f0b34a;--bad:#ff7b7b;--info:#8da2ff;color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121211;--fg:#ecece8;--mut:#8e8e88;--line:#242422;--fill:#1b1b1a;
+  --ok:#4cc48a;--warn:#f0b34a;--bad:#ff7b7b;--info:#8da2ff;color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+html{background:var(--bg);scroll-padding-top:env(safe-area-inset-top,0px)}
+body{background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+.app{height:100%;max-width:1000px;margin:0 auto;display:flex;flex-direction:column}
+main{flex:1;overflow-y:auto;padding:22px 18px 28px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.nav{flex:none;display:flex;border-top:1px solid var(--line);background:var(--bg)}
+.nav button{flex:1;border:0;background:none;padding:12px 2px;font-size:.78rem;color:var(--mut);display:flex;align-items:center;justify-content:center;gap:6px}
+.nav button.on{color:var(--fg);font-weight:600}
+.nav .plus i{font-style:normal;width:38px;height:38px;border-radius:50%;background:var(--fg);color:var(--bg);display:grid;place-items:center;font-size:1.4rem;line-height:1}
+.nav .plus span{display:none}
+@media (min-width:860px){
+  .app{flex-direction:row}
+  .nav{order:-1;flex-direction:column;width:190px;border-top:0;border-right:1px solid var(--line);padding:22px 10px;gap:2px}
+  .nav button{flex:none;justify-content:flex-start;padding:9px 12px;border-radius:10px;font-size:.92rem}
+  .nav button.on{background:var(--fill)}
+  .nav .plus{margin-top:12px;color:var(--fg)}
+  .nav .plus i{width:auto;height:auto;border-radius:10px;padding:7px 11px;font-size:1rem}
+  .nav .plus span{display:inline}
+  main{padding:30px 34px}
+}
+h1{font-size:1.5rem;font-weight:600;margin:0 0 2px;letter-spacing:-.02em}
+h3{font-size:.7rem;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.09em;margin:26px 0 6px}
+.sub0{color:var(--mut);font-size:.88rem;margin:0 0 18px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px}
+.tile{background:var(--fill);border:0;border-radius:12px;padding:14px 12px;text-align:left}
+.tile b{display:block;font-size:1.6rem;font-weight:500;letter-spacing:-.02em}
+.tile span{font-size:.74rem;color:var(--mut)}
+.row{display:flex;align-items:center;gap:12px;padding:12px 2px;border-bottom:1px solid var(--line);cursor:pointer}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;background:currentColor}
+.main1{flex:1;min-width:0}
+.t1{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.t2{font-size:.78rem;color:var(--mut)}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}.info{color:var(--info)}
+.mini{border:1px solid var(--line);background:none;border-radius:8px;padding:7px 10px;font-size:.78rem}
+.mini:active{background:var(--fg);color:var(--bg)}
+.empty{color:var(--mut);font-size:.9rem;padding:14px 2px;margin:0}
+input,select,textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--fg);font:inherit;font-size:16px}
+input:focus,select:focus,textarea:focus{outline:0;border-color:var(--fg)}
+label{display:block;font-size:.74rem;color:var(--mut);margin:12px 0 4px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0 4px}
+.btn{border:1px solid var(--line);background:none;border-radius:10px;padding:11px 14px;font-size:.92rem}
+.btn.p{background:var(--fg);color:var(--bg);border-color:var(--fg);font-weight:600}
+.btn.d{color:var(--bad)}
+.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.acts .btn{flex:1}
+.tabs{display:flex;gap:20px;border-bottom:1px solid var(--line);margin-top:14px}
+.tabs button{border:0;background:none;padding:8px 0;color:var(--mut)}
+.tabs button.on{color:var(--fg);border-bottom:2px solid var(--fg);font-weight:600}
+.menu{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:14px 2px}
+.menu small{display:block;color:var(--mut)}
+.pw{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.92rem;overflow-wrap:anywhere}
+.ins{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.prev{white-space:pre-wrap;background:var(--fill);border-radius:10px;padding:10px;font:inherit;font-size:.82rem;max-height:200px;overflow:auto;margin:0}
+.backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .2s;z-index:10}
+.backdrop.on{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-width:640px;margin:0 auto;background:var(--bg);border-radius:20px 20px 0 0;max-height:90%;overflow-y:auto;transform:translateY(105%);transition:transform .25s ease;padding:12px 18px calc(20px + env(safe-area-inset-bottom,0px));z-index:11;overscroll-behavior:contain;border:1px solid var(--line)}
+.sheet.on{transform:none}
+.grab{width:38px;height:4px;border-radius:4px;background:var(--line);margin:0 auto 12px}
+.sh{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.sh h2{font-size:1.05rem;font-weight:600;margin:0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.x{width:36px;height:36px;border-radius:50%;border:0;background:var(--fill);font-size:1rem;flex:none}
+.toast{position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top,0px));transform:translateX(-50%) translateY(-20px);background:var(--fg);color:var(--bg);padding:9px 18px;border-radius:99px;font-size:.86rem;opacity:0;pointer-events:none;transition:all .2s;z-index:30;white-space:nowrap}
+.toast.on{opacity:.96;transform:translateX(-50%)}
+:root{--bg:#f6f7fc;--fg:#1c1e2b;--mut:#7b8096;--line:#e3e6f1;--fill:#eceffa;--acc:#5b5bd6;--acc-t:#fff;--acc-bg:#e9e9fb;--ok:#1f9d55;--warn:#d98a00;--bad:#e04848;--info:#3b6ff0;--ok-bg:#dff3e7;--warn-bg:#fbefd5;--bad-bg:#fbe3e3;--info-bg:#e2e9fd}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0f1117;--fg:#eceef6;--mut:#8b90a5;--line:#252936;--fill:#181b25;--acc:#8b8bff;--acc-t:#0f1117;--acc-bg:#23244a;--ok:#4cc48a;--warn:#f0b34a;--bad:#ff7b7b;--info:#8da2ff;--ok-bg:#16322a;--warn-bg:#392d14;--bad-bg:#3a1c1f;--info-bg:#1d2a4d}}
+.nav button.on{color:var(--acc)}
+.nav .plus i{background:var(--acc);color:var(--acc-t)}
+@media (min-width:860px){.nav button.on{background:var(--acc-bg)}}
+.btn.p{background:var(--acc);border-color:var(--acc);color:var(--acc-t)}
+.tabs button.on{color:var(--acc);border-bottom-color:var(--acc)}
+.tile{border-radius:14px}
+.t-all{background:var(--acc-bg)}.t-all b{color:var(--acc)}
+.t-ok{background:var(--ok-bg)}.t-ok b{color:var(--ok)}
+.t-warn{background:var(--warn-bg)}.t-warn b{color:var(--warn)}
+.t-bad{background:var(--bad-bg)}.t-bad b{color:var(--bad)}
+.t-reqs{background:var(--info-bg)}.t-reqs b{color:var(--info)}
+.hero{background:linear-gradient(135deg,#5b5bd6,#a35bd6 60%,#e05b9a);color:#fff;border-radius:20px;padding:20px 18px;margin-bottom:14px}
+.hero h1{color:#fff}.hero p{margin:2px 0 0;opacity:.9;font-size:.9rem}
+.hero .big{font-size:2.2rem;font-weight:600;letter-spacing:-.03em;margin-top:10px}
+.av{width:38px;height:38px;border-radius:12px;flex:none;display:grid;place-items:center;color:#fff;font-style:normal;font-weight:700;font-size:.95rem}
+.pill{font-size:.72rem;font-weight:600;padding:3px 9px;border-radius:99px;white-space:nowrap}
+.pill.ok{background:var(--ok-bg)}.pill.warn{background:var(--warn-bg)}.pill.bad{background:var(--bad-bg)}.pill.info{background:var(--info-bg)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:10px 0 4px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--bg);border-radius:99px;padding:7px 13px;font-size:.82rem;display:flex;align-items:center;gap:6px}
+.chip i{width:8px;height:8px;border-radius:50%}
+.chip.on{background:var(--acc);color:var(--acc-t);border-color:var(--acc)}
+.ban{border-radius:14px;padding:12px;display:flex;align-items:center;gap:12px;margin:2px 0 4px}
+.pbar{height:6px;border-radius:6px;background:var(--fill);margin-top:6px;overflow:hidden}
+.pbar b{display:block;height:100%;border-radius:6px}
+.cat{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 12px}
+.cat button{border:0;color:#fff;font-weight:600;font-size:.82rem;border-radius:99px;padding:8px 13px}
+input[type=color]{padding:3px;height:44px}
+</style>
+</head>
+<body>
+<div class="app">
+  <main id="view"></main>
+  <nav class="nav">
+    <button data-v="home">Inicio</button>
+    <button data-v="accs">Cuentas</button>
+    <button class="plus" data-act="plus" aria-label="Nuevo"><i>+</i><span>Nuevo</span></button>
+    <button data-v="reqs">Solicitudes</button>
+    <button data-v="more">Más</button>
+  </nav>
+</div>
+<div class="backdrop" id="bd"></div>
+<div class="sheet" id="sheet"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  var KEY='cuentas-v1', PKEY='plataformas-v1', RKEY='solicitudes-v1', DAYS=30;
+  var data=[], plats=[], reqs=[], lastPlat='';
+  var view='home', fStat='all', fPlatF='', query='', lim=15, tab='act', mode=null, curId=null, curReq=null, showPw=false, ed='';
+  var RS={pend:['Pendiente','warn'],proc:['En proceso','info'],done:['Completada','ok'],canc:['Cancelada','bad']};
+  var $=function(id){return document.getElementById(id)};
+  var TPL=`🎀*FICHA ENTREGA* 
+
+*{plataforma}*
+🎀Fecha: {fecha} 🗓️
+
+🎀Correo: {correo}
+🎀Contraseña: {contrasena}
+🎀NIP: {nip}
+
+*Acceso solo a {perfil}*👤
+
+Favor de no entrar a ningún otro perfil, solo al tuyo! 
+
+*REGLAS DE GARANTÍA*
+
+🫰🏼CONFIRMA TU ACCESO A MÁS TARDAR 24 HORAS
+🫰🏼NO CAMBIAR CONTRASEÑA O CORREO NI DATOS DEL PERFIL,
+🫰🏼RECUERDA UN SOLO DISPOSITIVO
+
+📸*Mandar foto o captura antes de las 24 hrs de pantalla para validar tu garantía, persona que no mande foto, pierde su garantía.*
+
+GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕️`;
+
+  /* ---------- utilidades ---------- */
+  function pad(n){return n<10?'0'+n:''+n}
+  function iso(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+  function parse(s){var a=s.split('-');return new Date(+a[0],+a[1]-1,+a[2])}
+  function addDays(s,n){var d=parse(s);d.setDate(d.getDate()+n);return iso(d)}
+  function fmt(s){return parse(s).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'})}
+  function fmtS(s){return parse(s).toLocaleDateString('es-MX',{day:'2-digit',month:'short'})}
+  var MES=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+  function fmtL(s){var d=parse(s);return d.getDate()+' '+MES[d.getMonth()]+' '+d.getFullYear()}
+  function parseD(s){
+    if(!s)return '';var m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(m)return s;
+    m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);if(m)return m[3]+'-'+pad(+m[2])+'-'+pad(+m[1]);return '';
+  }
+  function today(){var d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate())}
+  function daysLeft(e){return Math.round((parse(e)-today())/86400000)}
+  function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+  function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+  function byExp(a,b){return a.exp<b.exp?-1:a.exp>b.exp?1:0}
+  function find(id){for(var i=0;i<data.length;i++)if(data[i].id===id)return data[i]}
+  function pById(id){for(var i=0;i<plats.length;i++)if(plats[i].id===id)return plats[i]}
+  function pOf(a){return pById(a.plat)}
+  function reqById(id){for(var i=0;i<reqs.length;i++)if(reqs[i].id===id)return reqs[i]}
+  /* catálogo de plataformas: [nombre, color, acceso, NIP sugerido] */
+  var CAT=[['Netflix','#E50914','pass','opt'],['Disney+','#113CCF','pass','opt'],['Prime Video','#00A8E1','pass','opt'],['HBO Max','#5B2CCB','pass','opt'],['ViX','#FF6B00','pass','no'],['Paramount+','#0064FF','pass','opt'],['Apple TV+','#2B2B2E','pass','no'],['YouTube Premium','#FF0033','pass','no'],['Crunchyroll','#F47521','pass','no'],['Claro video','#DA291C','pass','no'],['Spotify','#1DB954','pass','no'],['Apple Music','#FA243C','pass','no'],['Deezer','#8B5CF6','pass','no'],['Plex','#E5A00D','pass','no']];
+  var PAL=['#5b5bd6','#e05b9a','#14b8a6','#f59e0b','#3b82f6','#ef4444','#8b5cf6','#10b981'];
+  function catFind(n){n=(n||'').toLowerCase().trim();if(!n)return;for(var i=0;i<CAT.length;i++){var c=CAT[i][0].toLowerCase();if(n===c||n.indexOf(c)===0)return CAT[i]}}
+  function colorOf(p){if(!p)return '#9aa0b5';if(p.color)return p.color;var c=catFind(p.name);if(c)return c[1];var h=0;for(var i=0;i<p.name.length;i++)h=(h*31+p.name.charCodeAt(i))>>>0;return PAL[h%PAL.length]}
+  function av(p){return '<i class="av" style="background:'+colorOf(p)+'">'+esc(p?p.name.charAt(0).toUpperCase():'?')+'</i>'}
+  function chip(id,n,c,col){return '<button class="chip'+(fPlatF===id?' on':'')+'" data-chip="'+id+'"><i style="background:'+col+'"></i>'+esc(n)+' · '+c+'</button>'}
+  function byPlat(){
+    var cnt={},mx=0;data.forEach(function(a){var k=a.plat||'';cnt[k]=(cnt[k]||0)+1;});
+    var L=plats.filter(function(p){return cnt[p.id]}).sort(function(x,y){return cnt[y.id]-cnt[x.id]});
+    L.forEach(function(p){if(cnt[p.id]>mx)mx=cnt[p.id]});
+    if(!L.length)return '<p class="empty">Aún no hay cuentas por plataforma.</p>';
+    return L.map(function(p){return '<div class="row" data-pf="'+p.id+'">'+av(p)+'<div class="main1"><div class="t1">'+esc(p.name)+'</div><div class="pbar"><b style="width:'+Math.round(cnt[p.id]/mx*100)+'%;background:'+colorOf(p)+'"></b></div></div><b>'+cnt[p.id]+'</b></div>'}).join('');
+  }
+  function usesPass(a){var p=pOf(a);return !p||p.access==='pass'||!!a.pass}
+  function nipMode(a){var p=pOf(a);return p?p.nip:'opt'}
+  function status(a){
+    var d=daysLeft(a.exp);
+    if(d<0)return{c:'bad',k:'bad',t:'Vencida hace '+(-d)+(d===-1?' día':' días')};
+    if(d===0)return{c:'warn',k:'warn',t:'Vence hoy'};
+    if(d<=5)return{c:'warn',k:'warn',t:'Vence en '+d+(d===1?' día':' días')};
+    return{c:'ok',k:'ok',t:'Quedan '+d+' días'};
+  }
+  var tt;
+  function toast(m){var t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(function(){t.classList.remove('on')},1500)}
+  function copy(text,label){
+    function done(ok){toast(ok?('✓ '+label+' copiado'):'No se pudo copiar');if(ok&&navigator.vibrate){try{navigator.vibrate(25)}catch(e){}}}
+    function fb(){var ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;opacity:0;top:0';document.body.appendChild(ta);ta.focus();ta.select();var ok=false;try{ok=document.execCommand('copy')}catch(e){}document.body.removeChild(ta);done(ok)}
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(function(){done(true)},fb)}else fb();
+  }
+
+  /* ---------- datos ---------- */
+  function rd(k){try{var r=localStorage.getItem(k);return r===null?null:JSON.parse(r)}catch(e){return null}}
+  function migrate(){
+    data.forEach(function(a){
+      if(a.profiles&&a.profiles.length)a.profiles.forEach(function(x){reqs.push({id:x.id||uid(),acc:a.id,name:x.name,pin:x.pin||'',qty:1,notes:'',status:'done',date:x.date||a.created})});
+      delete a.profiles;
+    });
+  }
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(data));localStorage.setItem(PKEY,JSON.stringify(plats));localStorage.setItem(RKEY,JSON.stringify(reqs));}catch(e){toast('No se pudo guardar')}}
+  function load(){
+    var d=rd(KEY);if(Array.isArray(d))data=d;
+    var p=rd(PKEY);plats=Array.isArray(p)?p:[{id:uid(),name:'VIX 1M',access:'pass',nip:'no',guar:20,tpl:TPL}];
+    var r=rd(RKEY);if(Array.isArray(r))reqs=r;
+    try{lastPlat=localStorage.getItem('cuentas-lastplat')||''}catch(e){}
+    migrate();save();
+  }
+
+  /* ---------- mensaje de entrega ---------- */
+  function build(tpl,v){
+    var out=[];
+    tpl.split('\n').forEach(function(line){
+      var drop=false;
+      var l=line.replace(/\{(\w+)\}/g,function(m,k){if(!(k in v))return m;if(!v[k])drop=true;return v[k];});
+      if(!drop)out.push(l);
+    });
+    return out.join('\n').replace(/\s+$/,'');
+  }
+  function ficha(a,r){
+    var pl=pOf(a);if(!pl){toast('Elige una plataforma en Editar');return;}
+    copy(build(pl.tpl,{plataforma:pl.name,fecha:fmtL(r&&r.date?r.date:a.created),vence:fmtL(a.exp),correo:a.email,contrasena:a.pass||'',perfil:r?r.name:'',nip:r?r.pin:'',garantia:pl.guar?String(pl.guar):''}),'Mensaje');
+  }
+
+  /* ---------- vistas ---------- */
+  function accRow(a,btn){
+    var s=status(a),p=pOf(a);
+    return '<div class="row" data-open="'+a.id+'">'+av(p)+'<div class="main1"><div class="t1">'+esc(a.email)+'</div>'+
+      '<div class="t2">'+(p?esc(p.name)+' · ':'')+'<span class="'+s.c+'">'+s.t+'</span> · vence '+fmtS(a.exp)+'</div></div>'+
+      (btn?'<button class="mini" data-act="cemail" data-id="'+a.id+'">Correo</button>'+(usesPass(a)?'<button class="mini" data-act="cpass" data-id="'+a.id+'">Clave</button>':''):'')+'</div>';
+  }
+  function reqRow(r){
+    var a=find(r.acc),s=RS[r.status],p=a&&pOf(a);
+    return '<div class="row" data-oreq="'+r.id+'">'+av(p)+'<div class="main1"><div class="t1">'+esc(r.name)+(r.qty>1?' · '+r.qty+' perfiles':'')+'</div>'+
+      '<div class="t2">'+(p?esc(p.name)+' · ':'')+(a?esc(a.email):'Cuenta eliminada')+'</div></div><span class="pill '+s[1]+'">'+s[0]+'</span></div>';
+  }
+  function tile(k,l,v){return '<button class="tile t-'+k+'" data-stat="'+k+'"><b>'+v+'</b><span>'+l+'</span></button>'}
+  function isAct(r){return r.status==='pend'||r.status==='proc'}
+
+  function vHome(){
+    var n={ok:0,warn:0,bad:0};data.forEach(function(a){n[status(a).k]++});
+    var act=reqs.filter(isAct);
+    var soon=data.filter(function(a){return daysLeft(a.exp)<=5}).sort(byExp).slice(0,6);
+    return '<div class="hero"><h1>Inicio</h1><p>Resumen de tus cuentas y solicitudes</p><div class="big">'+data.length+' cuentas</div><p>'+(n.warn+n.bad?(n.warn+n.bad)+' requieren atención':'Todo al día')+'</p></div>'+
+      '<div class="tiles">'+tile('all','Total',data.length)+tile('ok','Activas',n.ok)+tile('warn','Por vencer',n.warn)+tile('bad','Vencidas',n.bad)+
+      '<button class="tile t-reqs" data-go="reqs"><b>'+act.length+'</b><span>Solicitudes</span></button></div>'+
+      '<h3>Próximos vencimientos</h3>'+(soon.length?soon.map(function(a){return accRow(a)}).join(''):'<p class="empty">Nada por vencer en los próximos 5 días.</p>')+
+      '<h3>Por plataforma</h3>'+byPlat()+'<h3>Solicitudes pendientes</h3>'+(act.length?act.slice(-4).reverse().map(reqRow).join(''):'<p class="empty">No hay solicitudes pendientes.</p>');
+  }
+  function aList(){
+    var q=query.trim().toLowerCase();
+    var it=data.filter(function(a){var p=pOf(a);return (fStat==='all'||status(a).k===fStat)&&(!fPlatF||a.plat===fPlatF)&&(!q||(a.email+' '+(p?p.name:'')).toLowerCase().indexOf(q)>-1)}).sort(byExp);
+    if(!it.length)return '<p class="empty">'+(data.length?'Sin resultados.':'Aún no tienes cuentas. Toca + para agregar la primera.')+'</p>';
+    return it.slice(0,lim).map(function(a){return accRow(a,1)}).join('')+(it.length>lim?'<button class="btn" style="width:100%;margin-top:12px" data-act="more">Mostrar más ('+(it.length-lim)+')</button>':'');
+  }
+  function opts(list,sel){return list.map(function(x){return '<option value="'+x[0]+'"'+(sel===x[0]?' selected':'')+'>'+esc(x[1])+'</option>'}).join('')}
+  function vAccs(){
+    return '<h1>Cuentas</h1><p class="sub0">'+data.length+' en total</p>'+
+      '<input id="fSearch" type="search" placeholder="Buscar por correo o plataforma" value="'+esc(query)+'" autocomplete="off">'+
+      '<div class="chips">'+chip('','Todas',data.length,'#9aa0b5')+plats.map(function(p){return chip(p.id,p.name,data.filter(function(a){return a.plat===p.id}).length,colorOf(p))}).join('')+'</div>'+
+      '<select id="fStat" style="margin-top:8px">'+opts([['all','Todos los estados'],['ok','Activas'],['warn','Por vencer'],['bad','Vencidas']],fStat)+'</select>'+
+      '<div id="alist">'+aList()+'</div>';
+  }
+  function vReqs(){
+    var act=reqs.filter(isAct),his=reqs.filter(function(r){return !isAct(r)});
+    var it=(tab==='act'?act:his).slice().reverse();
+    return '<h1>Solicitudes de perfil</h1><p class="sub0" style="margin:0">Pide, sigue y entrega perfiles</p>'+
+      '<div class="tabs"><button data-tab="act" class="'+(tab==='act'?'on':'')+'">Activas ('+act.length+')</button><button data-tab="his" class="'+(tab==='his'?'on':'')+'">Historial ('+his.length+')</button></div>'+
+      (it.length?it.map(reqRow).join(''):'<p class="empty">'+(tab==='act'?'No hay solicitudes activas.':'Aún no hay historial.')+'</p>')+
+      '<button class="btn p" style="width:100%;margin-top:18px" data-act="newreq">Nueva solicitud</button>';
+  }
+  function mi(a,t,s){return '<button class="menu" data-act="'+a+'"><b>'+t+'</b><small>'+s+'</small></button>'}
+  function vMore(){
+    return '<h1>Más</h1><p class="sub0">Ajustes y herramientas</p>'+
+      mi('plats','Plataformas y mensajes','Acceso, NIP, garantía y texto de entrega')+
+      mi('imp','Importar cuentas','Pega varias cuentas de una vez')+
+      mi('bak','Respaldo','Copiar o restaurar todos tus datos');
+  }
+  function render(){
+    var m=$('view');
+    m.innerHTML=view==='home'?vHome():view==='accs'?vAccs():view==='reqs'?vReqs():vMore();
+    var bs=document.querySelectorAll('.nav [data-v]');
+    for(var i=0;i<bs.length;i++)bs[i].classList.toggle('on',bs[i].dataset.v===view);
+  }
+  function go(v){if(mode)close();view=v;lim=15;render();$('view').scrollTop=0}
+
+  /* ---------- paneles ---------- */
+  function open(m){mode=m;$('bd').classList.add('on');$('sheet').classList.add('on');}
+  function close(){mode=null;curId=null;curReq=null;showPw=false;$('bd').classList.remove('on');$('sheet').classList.remove('on');if(document.activeElement)document.activeElement.blur();}
+  function hd(t){return '<div class="grab"></div><div class="sh"><h2>'+t+'</h2><button class="x" data-act="close">✕</button></div>'}
+  function platSelect(id,sel){return '<select id="'+id+'"><option value="">— Sin plataforma —</option>'+opts(plats.map(function(p){return [p.id,p.name]}),sel)+'</select>'}
+  function togglePass(){
+    var s=$('fPlat');if(!s||!$('wPass'))return;
+    var p=pById(s.value);$('wPass').style.display=(p&&p.access==='code')?'none':'';
+  }
+
+  function sheetAcc(id){
+    var a=id?find(id):null;ed=a?id:'';
+    var d=a||{plat:lastPlat,email:'',pass:'',created:iso(today()),notes:''};
+    $('sheet').innerHTML=hd(a?'Editar cuenta':'Nueva cuenta')+
+      '<label for="fPlat">Plataforma / servicio</label>'+platSelect('fPlat',d.plat)+
+      '<label for="fEmail">Correo electrónico</label><input id="fEmail" type="email" autocomplete="off" autocapitalize="none" value="'+esc(d.email)+'" placeholder="correo@ejemplo.com">'+
+      '<div id="wPass"><label for="fPass">Contraseña</label><input id="fPass" type="text" autocomplete="off" autocapitalize="none" value="'+esc(d.pass)+'" placeholder="contraseña"></div>'+
+      '<div class="two"><div><label for="fDate">Fecha de creación</label><input id="fDate" type="date" value="'+d.created+'"></div>'+
+      '<div><label>Vence (30 días)</label><input id="fExp" readonly value="'+fmt(addDays(d.created,DAYS))+'"></div></div>'+
+      '<label for="fNotes">Notas (opcional)</label><textarea id="fNotes" rows="2" maxlength="200">'+esc(d.notes||'')+'</textarea>'+
+      '<div class="acts"><button class="btn p" data-act="saveacc">Guardar</button>'+(a?'':'<button class="btn" data-act="saveacc2">Guardar y agregar otra</button>')+'</div>';
+    open('acc');togglePass();
+  }
+  function saveAcc(again){
+    var em=$('fEmail').value.trim(),pid=$('fPlat').value,dt=$('fDate').value,pl=pById(pid);
+    var code=!!(pl&&pl.access==='code'),pw=code?'':$('fPass').value;
+    if(!em||(!pw&&!code)){toast(code?'Escribe el correo':'Escribe correo y contraseña');return;}
+    if(!dt){toast('Elige la fecha');return;}
+    var nt=$('fNotes').value.trim();
+    if(ed){var a=find(ed);a.email=em;a.pass=pw;a.plat=pid;a.created=dt;a.exp=addDays(dt,DAYS);a.notes=nt;}
+    else data.push({id:uid(),email:em,pass:pw,plat:pid,created:dt,exp:addDays(dt,DAYS),notes:nt});
+    lastPlat=pid;try{localStorage.setItem('cuentas-lastplat',pid)}catch(e){}
+    save();render();
+    if(ed){sheetDet(ed);toast('✓ Cuenta actualizada');return;}
+    if(again){$('fEmail').value='';$('fPass').value='';$('fEmail').focus();toast('✓ Guardada, agrega otra');}
+    else{close();toast('✓ Cuenta guardada');}
+  }
+
+  function sheetDet(id){
+    var a=find(id);if(!a){close();return;}
+    curId=id;var s=status(a),p=pOf(a),pw=usesPass(a),rs=reqs.filter(function(r){return r.acc===id});
+    $('sheet').innerHTML=hd(p?esc(p.name):'Cuenta')+
+      '<div class="ban" style="background:'+colorOf(p)+'22">'+av(p)+'<div class="main1"><div class="t1" style="font-size:1.05rem">'+esc(a.email)+'</div><div class="'+s.c+'" style="font-size:.85rem">'+s.t+'</div></div></div>'+
+      '<div class="two" style="margin:14px 0 0"><div><div class="t2">Creación</div>'+fmt(a.created)+'</div><div><div class="t2">Vencimiento</div>'+fmt(a.exp)+'</div></div>'+
+      (pw?'<label>Contraseña</label><div class="pw"><span>'+(showPw?esc(a.pass):'••••••••')+'</span><button class="mini" data-act="eye">'+(showPw?'Ocultar':'Ver')+'</button></div>':'')+
+      (a.notes?'<label>Notas</label><div>'+esc(a.notes)+'</div>':'')+
+      '<div class="acts"><button class="btn" data-act="cemail" data-id="'+id+'">Copiar correo</button>'+(pw?'<button class="btn" data-act="cpass" data-id="'+id+'">Copiar contraseña</button>':'')+'</div>'+
+      '<div class="acts" style="margin-top:8px">'+(pw?'<button class="btn" data-act="cboth">Copiar ambos</button>':'')+'<button class="btn p" data-act="ficha">Copiar ficha</button></div>'+
+      '<h3>Perfiles y solicitudes ('+rs.length+')</h3>'+(rs.map(reqRow).join('')||'<p class="empty">Sin solicitudes.</p>')+
+      '<div class="acts" style="margin-top:8px"><button class="btn" data-act="newreq" data-id="'+id+'">+ Nueva solicitud</button></div>'+
+      '<h3>Cuenta</h3><div class="acts" style="margin-top:0"><button class="btn" data-act="editacc">Editar</button><button class="btn" data-act="renew">Renovar 30 días</button><button class="btn d" data-act="del">Eliminar</button></div>';
+    open('det');
+  }
+
+  function sheetReq(id){
+    var r=reqById(id);if(!r){close();return;}
+    curReq=id;var a=find(r.acc),p=a&&pOf(a);
+    $('sheet').innerHTML=hd(esc(r.name))+
+      '<div class="t2">'+(p?esc(p.name)+' · ':'')+(a?esc(a.email):'Cuenta eliminada')+'</div>'+
+      '<div class="two" style="margin:12px 0 0"><div><div class="t2">Perfiles</div>'+r.qty+'</div><div><div class="t2">Fecha</div>'+fmt(r.date)+'</div></div>'+
+      (r.pin?'<label>NIP</label><div class="pw"><span>'+esc(r.pin)+'</span><button class="mini" data-act="cpin">Copiar</button></div>':'')+
+      (r.notes?'<label>Observaciones</label><div>'+esc(r.notes)+'</div>':'')+
+      '<label for="rStat">Estado</label><select id="rStat">'+opts(Object.keys(RS).map(function(k){return [k,RS[k][0]]}),r.status)+'</select>'+
+      '<div class="acts">'+(a?'<button class="btn p" data-act="rficha">Copiar ficha</button>':'')+'<button class="btn d" data-act="rdel">Eliminar</button></div>';
+    open('req');
+  }
+  function togNip(){
+    var s=$('qAcc');if(!s)return;var a=find(s.value),m=a?nipMode(a):'opt';
+    $('wNip').style.display=m==='no'?'none':'';$('lNip').textContent=m==='req'?'NIP (obligatorio)':'NIP (opcional)';
+  }
+  function sheetNew(accId){
+    if(!data.length){toast('Primero agrega una cuenta');return;}
+    var cur=accId||data[0].id;
+    $('sheet').innerHTML=hd('Solicitud de perfil')+
+      '<label for="qAcc">Cuenta asociada</label><select id="qAcc">'+opts(data.map(function(a){var p=pOf(a);return [a.id,(p?p.name+' · ':'')+a.email]}),cur)+'</select>'+
+      '<label for="qName">Nombre del perfil (opcional)</label><input id="qName" autocomplete="off" placeholder="Ej. Perfil familiar">'+
+      '<div id="wNip"><label for="qPin" id="lNip">NIP (opcional)</label><input id="qPin" inputmode="numeric" autocomplete="off" placeholder="Ej. 1234"></div>'+
+      '<label for="qQty">Cantidad de perfiles</label><select id="qQty">'+opts([1,2,3,4,5].map(function(n){return [''+n,''+n]}),'1')+'</select>'+
+      '<label for="qNotes">Observaciones (opcional)</label><textarea id="qNotes" rows="2" maxlength="200" placeholder="Ej. Para uso familiar"></textarea>'+
+      '<div class="acts"><button class="btn p" data-act="savereq">Guardar solicitud</button><button class="btn" data-act="close">Cancelar</button></div>';
+    open('new');togNip();
+  }
+  function saveReq(){
+    var a=find($('qAcc').value);if(!a)return;
+    var m=nipMode(a),pin=m==='no'?'':$('qPin').value.trim();
+    if(m==='req'&&!pin){toast('Esta plataforma necesita NIP');return;}
+    var n=reqs.filter(function(r){return r.acc===a.id}).length+1;
+    reqs.push({id:uid(),acc:a.id,name:$('qName').value.trim()||('Perfil '+n),pin:pin,qty:parseInt($('qQty').value,10)||1,notes:$('qNotes').value.trim(),status:'pend',date:iso(today())});
+    save();close();view='reqs';tab='act';render();toast('✓ Solicitud guardada');
+  }
+
+  /* plataformas */
+  function sheetPlats(){
+    $('sheet').innerHTML=hd('Plataformas')+
+      '<p class="t2" style="margin:0 0 6px">Cada plataforma tiene sus reglas y su texto de entrega. Toca una para editarla.</p>'+
+      plats.map(function(p){return '<div class="row" data-editp="'+p.id+'">'+av(p)+'<div class="main1"><div class="t1">'+esc(p.name)+'</div><div class="t2">'+(p.access==='code'?'Con código':'Con contraseña')+' · '+({no:'sin NIP',opt:'NIP opcional',req:'NIP obligatorio'})[p.nip]+' · garantía '+p.guar+' días</div></div><span class="t2">›</span></div>'}).join('')+
+      '<h3>Agregar del catálogo</h3><div class="cat">'+CAT.filter(function(c){return !plats.some(function(p){var k=catFind(p.name);return k&&k[0]===c[0]})}).map(function(c){return '<button style="background:'+c[1]+'" data-cat="'+c[0]+'">+ '+c[0]+'</button>'}).join('')+'</div>'+
+      '<div class="acts"><button class="btn p" data-act="newplat">+ Nueva plataforma</button></div>';
+    open('plats');
+  }
+  function sheetPlatEdit(id,c){
+    var p=pById(id);ed=p?p.id:'';
+    var d=p||{name:c?c[0]:'',access:c?c[2]:'pass',nip:c?c[3]:'no',guar:20,tpl:TPL,color:c?c[1]:''};
+    var ins=[['plataforma','Plataforma'],['fecha','Fecha'],['vence','Vence'],['correo','Correo'],['contrasena','Contraseña'],['perfil','Perfil'],['nip','NIP'],['garantia','Garantía']];
+    $('sheet').innerHTML=hd(p?'Editar plataforma':'Nueva plataforma')+
+      '<label for="eName">Nombre en el mensaje (ej. VIX 1M)</label><input id="eName" list="catl" value="'+esc(d.name)+'" autocomplete="off"><datalist id="catl">'+CAT.map(function(x){return '<option value="'+x[0]+'">'}).join('')+'</datalist>'+
+      '<div class="two"><div><label for="eAcc">Se entra con</label><select id="eAcc">'+opts([['pass','Contraseña'],['code','Código']],d.access)+'</select></div>'+
+      '<div><label for="eNip">NIP</label><select id="eNip">'+opts([['no','No lleva'],['opt','Opcional'],['req','Obligatorio']],d.nip)+'</select></div></div>'+
+      '<label for="eGuar">Días de garantía</label><input id="eGuar" type="number" inputmode="numeric" value="'+d.guar+'">'+
+      '<label for="eCol">Color</label><input id="eCol" type="color" value="'+colorOf(d)+'">'+
+      '<label for="eTpl">Texto de entrega</label><textarea id="eTpl" rows="9">'+esc(d.tpl)+'</textarea>'+
+      '<div class="ins">'+ins.map(function(i){return '<button class="mini" data-ins="'+i[0]+'">'+i[1]+'</button>'}).join('')+'</div>'+
+      '<p class="t2" style="margin:0">Toca un botón para insertar el dato donde está el cursor. Si un dato está vacío (por ejemplo el NIP), esa línea se omite sola.</p>'+
+      '<label>Vista previa</label><pre class="prev" id="ePrev"></pre>'+
+      '<div class="acts"><button class="btn p" data-act="saveplat">Guardar</button>'+(p?'<button class="btn d" data-act="delplat">Eliminar</button>':'<button class="btn" data-act="plats">Cancelar</button>')+'</div>';
+    open('platEdit');updPrev();
+  }
+  function updPrev(){
+    var el=$('ePrev');if(!el)return;var i0=iso(today());
+    el.textContent=build($('eTpl').value,{plataforma:$('eName').value.trim()||'PLATAFORMA',fecha:fmtL(i0),vence:fmtL(addDays(i0,DAYS)),correo:'cliente@correo.com',contrasena:$('eAcc').value==='pass'?'Clave123':'',perfil:'SARAHI',nip:$('eNip').value!=='no'?'1234':'',garantia:$('eGuar').value||''});
+  }
+
+  /* importar y respaldo */
+  function sheetImp(){
+    $('sheet').innerHTML=hd('Importar cuentas')+
+      '<p class="t2" style="margin:0">Una cuenta por línea: correo, contraseña y fecha (opcional, como 22/10/2026). Si la plataforma es con código, solo correo y fecha.</p>'+
+      '<label for="iPlat">Plataforma</label>'+platSelect('iPlat',lastPlat)+
+      '<label for="iTxt">Cuentas</label><textarea id="iTxt" rows="6" placeholder="correo1@ejemplo.com, clave1&#10;correo2@ejemplo.com, clave2, 22/10/2026"></textarea>'+
+      '<div class="acts"><button class="btn p" data-act="doimp">Importar</button></div>';
+    open('imp');
+  }
+  function doImp(){
+    var pid=$('iPlat').value,pl=pById(pid),code=!!(pl&&pl.access==='code'),n=0,bad=0;
+    $('iTxt').value.split('\n').forEach(function(l){
+      var t=l.trim();if(!t)return;
+      var c=t.split(/[\t,;]/);if(c.length===1)c=t.split(/\s+/);
+      c=c.map(function(x){return x.trim()});
+      var em=c[0],pw=code?'':(c[1]||''),dt=parseD(code?c[1]:c[2])||iso(today());
+      if(!em||em.indexOf('@')<0||(!pw&&!code)){bad++;return;}
+      data.push({id:uid(),email:em,pass:pw,plat:pid,created:dt,exp:addDays(dt,DAYS),notes:''});n++;
+    });
+    save();render();close();toast('✓ '+n+' importadas'+(bad?' · '+bad+' omitidas':''));
+  }
+  function sheetBak(){
+    $('sheet').innerHTML=hd('Respaldo de datos')+
+      '<p class="t2" style="margin:0 0 8px">Tus datos se guardan solo en este navegador y dispositivo. Copia un respaldo y guárdalo en un lugar seguro.</p>'+
+      '<div class="acts" style="margin-top:0"><button class="btn p" data-act="backup">Copiar respaldo</button></div>'+
+      '<label for="fRestore">Pegar respaldo para restaurar</label><textarea id="fRestore" rows="3" placeholder="Pega aquí el respaldo"></textarea>'+
+      '<div class="acts"><button class="btn" data-act="restore">Restaurar</button></div>';
+    open('bak');
+  }
+
+  /* ---------- eventos ---------- */
+  document.addEventListener('click',function(e){
+    var t=e.target,x;
+    if((x=t.closest('[data-v]'))){go(x.dataset.v);return;}
+    if((x=t.closest('[data-stat]'))){fStat=x.dataset.stat;fPlatF='';query='';go('accs');return;}
+    if((x=t.closest('[data-pf]'))){fPlatF=x.dataset.pf;fStat='all';query='';go('accs');return;}
+    if((x=t.closest('[data-chip]'))){fPlatF=x.dataset.chip;lim=15;render();return;}
+    if((x=t.closest('[data-go]'))){go(x.dataset.go);return;}
+    if((x=t.closest('[data-tab]'))){tab=x.dataset.tab;render();return;}
+    if((x=t.closest('[data-ins]'))){
+      var ta=$('eTpl'),s0=ta.selectionStart,e0=ta.selectionEnd,tk='{'+x.dataset.ins+'}';
+      ta.value=ta.value.slice(0,s0)+tk+ta.value.slice(e0);ta.focus();ta.selectionStart=ta.selectionEnd=s0+tk.length;updPrev();return;
+    }
+    if((x=t.closest('[data-editp]'))){sheetPlatEdit(x.dataset.editp);return;}
+    if((x=t.closest('[data-cat]'))){sheetPlatEdit('',catFind(x.dataset.cat));return;}
+    var b=t.closest('[data-act]');
+    if(b){
+      var act=b.dataset.act,id=b.dataset.id||curId,a=id?find(id):null;
+      if(act==='close')close();
+      else if(act==='plus'){if(view==='reqs')sheetNew();else sheetAcc();}
+      else if(act==='more'){lim+=15;$('alist').innerHTML=aList();}
+      else if(act==='cemail'&&a)copy(a.email,'Correo');
+      else if(act==='cpass'&&a)copy(a.pass,'Contraseña');
+      else if(act==='cboth'&&a)copy(a.email+'\n'+a.pass,'Correo y contraseña');
+      else if(act==='eye'){showPw=!showPw;sheetDet(curId);}
+      else if(act==='ficha'&&a)ficha(a,null);
+      else if(act==='editacc')sheetAcc(curId);
+      else if(act==='renew'&&a){if(confirm('¿Renovar? Creación hoy, vence en 30 días.')){a.created=iso(today());a.exp=addDays(a.created,DAYS);save();render();sheetDet(a.id);toast('✓ Cuenta renovada');}}
+      else if(act==='del'&&a){if(confirm('¿Eliminar esta cuenta y sus solicitudes?')){data=data.filter(function(y){return y.id!==a.id});reqs=reqs.filter(function(r){return r.acc!==a.id});save();close();render();toast('Cuenta eliminada');}}
+      else if(act==='newreq')sheetNew(b.dataset.id||'');
+      else if(act==='savereq')saveReq();
+      else if(act==='cpin'){var r1=reqById(curReq);if(r1)copy(r1.pin,'NIP');}
+      else if(act==='rficha'){var r2=reqById(curReq),a2=r2&&find(r2.acc);if(a2)ficha(a2,r2);}
+      else if(act==='rdel'){if(confirm('¿Eliminar esta solicitud?')){reqs=reqs.filter(function(r){return r.id!==curReq});save();close();render();}}
+      else if(act==='saveacc')saveAcc(false);
+      else if(act==='saveacc2')saveAcc(true);
+      else if(act==='plats')sheetPlats();
+      else if(act==='imp')sheetImp();
+      else if(act==='bak')sheetBak();
+      else if(act==='newplat')sheetPlatEdit('');
+      else if(act==='saveplat'){
+        var nm=$('eName').value.trim();if(!nm){toast('Escribe el nombre');return;}
+        var o={name:nm,access:$('eAcc').value,nip:$('eNip').value,guar:parseInt($('eGuar').value,10)||0,tpl:$('eTpl').value,color:$('eCol').value};
+        var cp=pById(ed);
+        if(cp){cp.name=o.name;cp.access=o.access;cp.nip=o.nip;cp.guar=o.guar;cp.tpl=o.tpl;cp.color=o.color;}else{o.id=uid();plats.push(o);}
+        save();render();sheetPlats();toast('✓ Plataforma guardada');
+      }
+      else if(act==='delplat'){
+        if(confirm('¿Eliminar esta plataforma? Las cuentas se quedan, pero sin plataforma.')){
+          plats=plats.filter(function(y){return y.id!==ed});
+          data.forEach(function(y){if(y.plat===ed)y.plat='';});
+          save();render();sheetPlats();
+        }
+      }
+      else if(act==='doimp')doImp();
+      else if(act==='backup')copy(JSON.stringify({v:3,cuentas:data,plataformas:plats,solicitudes:reqs}),'Respaldo');
+      else if(act==='restore'){
+        var tx=$('fRestore').value.trim();if(!tx){toast('Pega un respaldo');return;}
+        try{
+          var p2=JSON.parse(tx),ca=Array.isArray(p2)?p2:p2.cuentas;
+          if(!Array.isArray(ca))throw 0;
+          if(!confirm('Esto reemplaza tus datos actuales. ¿Continuar?'))return;
+          data=ca;
+          if(!Array.isArray(p2)){if(Array.isArray(p2.plataformas))plats=p2.plataformas;if(Array.isArray(p2.solicitudes))reqs=p2.solicitudes;}
+          migrate();save();render();close();toast('✓ Respaldo restaurado');
+        }catch(err){toast('Respaldo no válido');}
+      }
+      return;
+    }
+    if((x=t.closest('[data-open]'))){showPw=false;sheetDet(x.dataset.open);return;}
+    if((x=t.closest('[data-oreq]'))){sheetReq(x.dataset.oreq);return;}
+  });
+
+  document.addEventListener('input',function(e){
+    var id=e.target.id;
+    if(id==='fDate'){var v=e.target.value;$('fExp').value=v?fmt(addDays(v,DAYS)):'';}
+    else if(id==='fSearch'){query=e.target.value;lim=15;$('alist').innerHTML=aList();}
+    else if(id==='eName'||id==='eTpl'||id==='eGuar')updPrev();
+  });
+  document.addEventListener('change',function(e){
+    var t=e.target;
+    if(t.id==='fPlat')togglePass();
+    else if(t.id==='qAcc')togNip();
+    else if(t.id==='rStat'){var r=reqById(curReq);if(r){r.status=t.value;save();render();toast('✓ Estado actualizado');}}
+    else if(t.id==='fPlatF'){fPlatF=t.value;lim=15;render();}
+    else if(t.id==='fStat'){fStat=t.value;lim=15;render();}
+    else if(t.id==='eNip'||t.id==='eAcc')updPrev();
+    else if(t.id==='eName'&&!ed){var c0=catFind(t.value);if(c0){$('eAcc').value=c0[2];$('eNip').value=c0[3];$('eCol').value=c0[1];updPrev();}}
+  });
+  $('bd').addEventListener('click',close);
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&mode)close();});
+
+  load();render();
+})();
+</script>
+</body>
+</html>
