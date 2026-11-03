@@ -118,6 +118,23 @@ label{display:block;font-size:.74rem;color:var(--mut);margin:12px 0 4px}
 .cat{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 12px}
 .cat button{border:0;color:#fff;font-weight:600;font-size:.82rem;border-radius:99px;padding:8px 13px}
 input[type=color]{padding:3px;height:44px}
+.slots{display:flex;align-items:center;gap:4px;margin-top:6px;flex-wrap:wrap}
+.sl{width:11px;height:11px;border-radius:50%;border:1.5px solid var(--mut);opacity:.5;flex:none}
+.sl.f,.sl.h,.sl.ov{border-color:transparent}
+.sl.f{opacity:1}.sl.h{opacity:.45}.sl.ov{background:var(--bad);opacity:1}
+.sl-t{font-size:.72rem;color:var(--mut);margin-left:4px}
+.sl-t.bad{color:var(--bad)}.sl-t.info{color:var(--info)}
+.pfs{display:flex;flex-wrap:wrap;gap:8px 6px;margin:8px 0 4px}
+.pf{position:relative;display:grid;justify-items:center;align-content:start;gap:4px;flex:none;width:56px;font-size:.68rem;color:var(--mut);text-align:center;border:0;background:none;padding:0}
+.pf i{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:#fff;font-style:normal;font-weight:700;font-size:1rem}
+.pf span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pf.o i{opacity:.75}
+.pf.h i{opacity:.5}
+.pf.n i{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--acc)}
+.pf.ov i{background:var(--bad)!important}
+.pf.e i{background:none;border:2px dashed var(--mut);opacity:.45}
+.pf .rm{position:absolute;top:-3px;right:3px;width:17px;height:17px;border-radius:50%;background:var(--fg);color:var(--bg);font-size:.6rem;font-weight:600;display:grid;place-items:center}
+.addrow{display:flex;gap:8px}.addrow .btn{flex:none}
 </style>
 </head>
 <body>
@@ -201,6 +218,56 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
     if(!L.length)return '<p class="empty">Aún no hay cuentas por plataforma.</p>';
     return L.map(function(p){return '<div class="row" data-pf="'+p.id+'">'+av(p)+'<div class="main1"><div class="t1">'+esc(p.name)+'</div><div class="pbar"><b style="width:'+Math.round(cnt[p.id]/mx*100)+'%;background:'+colorOf(p)+'"></b></div></div><b>'+cnt[p.id]+'</b></div>'}).join('');
   }
+  /* ---------- perfiles y ocupación de cuentas ---------- */
+  var qNames=[];
+  function nameColor(n){var h=0;n=String(n).toLowerCase();for(var i=0;i<n.length;i++)h=(h*31+n.charCodeAt(i))>>>0;return PAL[h%PAL.length]}
+  /* nombres de los perfiles de una solicitud (las solicitudes anteriores solo traen nombre y cantidad) */
+  function reqNames(r){
+    if(r.names&&r.names.length)return r.names;
+    var q=Math.max(1,parseInt(r.qty,10)||1),b=r.name||'Perfil',o=[];
+    if(q===1)return [b];
+    for(var i=1;i<=q;i++)o.push(b+' '+i);
+    return o;
+  }
+  /* perfiles que ocupan una cuenta: todas las solicitudes menos las canceladas */
+  function slotsOf(a){
+    var out=[];
+    reqs.forEach(function(r){if(r.acc!==a.id||r.status==='canc')return;reqNames(r).forEach(function(n){out.push({n:n,done:r.status==='done'})})});
+    return out;
+  }
+  function maxOf(a){var p=pOf(a);return p&&p.max>0?p.max:0}
+  function fillInfo(a){var u=slotsOf(a),m=maxOf(a);return{u:u,n:u.length,m:m,full:m>0&&u.length>=m,over:m>0&&u.length>m}}
+  function fillTxt(f){
+    if(!f.m)return f.n+(f.n===1?' perfil':' perfiles');
+    var l=f.m-f.n;
+    return f.n+'/'+f.m+(f.over?' · excede':f.full?' · llena':' · '+l+(l===1?' libre':' libres'));
+  }
+  function pf(n,cls,idx){
+    var ini=esc((Array.from(String(n))[0]||'?').toUpperCase());
+    var inner='<i style="background:'+nameColor(n)+'">'+ini+'</i><span>'+esc(n)+'</span>';
+    if(idx===undefined)return '<span class="pf '+cls+'" title="'+esc(n)+'">'+inner+'</span>';
+    return '<button type="button" class="pf '+cls+'" data-rmn="'+idx+'" aria-label="Quitar '+esc(n)+'">'+inner+'<b class="rm">✕</b></button>';
+  }
+  function pfE(){return '<span class="pf e"><i></i><span>libre</span></span>'}
+  /* puntos compactos para la lista de cuentas */
+  function slotDots(a){
+    var f=fillInfo(a),col=colorOf(pOf(a)),h='';
+    if(!f.m)return f.n?'<div class="slots"><span class="sl-t" style="margin-left:0">'+fillTxt(f)+'</span></div>':'';
+    var cls=f.over?'bad':f.full?'info':'';
+    if(f.m>10)return '<div class="pbar"><b style="width:'+Math.min(100,Math.round(f.n/f.m*100))+'%;background:'+(f.over?'var(--bad)':col)+'"></b></div><div class="slots"><span class="sl-t '+cls+'" style="margin-left:0">'+fillTxt(f)+'</span></div>';
+    f.u.forEach(function(s,i){h+=i<f.m?'<i class="sl '+(s.done?'f':'h')+'" style="background:'+col+'"></i>':'<i class="sl ov"></i>'});
+    for(var k=f.n;k<f.m;k++)h+='<i class="sl"></i>';
+    return '<div class="slots">'+h+'<span class="sl-t '+cls+'">'+fillTxt(f)+'</span></div>';
+  }
+  /* círculos con nombre para el detalle de la cuenta */
+  function fillBlock(a){
+    var f=fillInfo(a),h='',pend=false;
+    f.u.forEach(function(s,i){if(!s.done)pend=true;h+=pf(s.n,(s.done?'':'h')+(f.m&&i>=f.m?' ov':''))});
+    for(var k=f.n;k<f.m;k++)h+=pfE();
+    var l=f.m-f.n,tx=f.m?f.n+' de '+f.m+' perfiles'+(f.over?' · excede el límite':f.full?' · cuenta llena':' · '+l+(l===1?' libre':' libres')):f.n+(f.n===1?' perfil':' perfiles')+' · sin límite definido';
+    return '<div class="t2'+(f.over?' bad':'')+'" style="margin:2px 0 0">'+tx+'</div>'+(h?'<div class="pfs">'+h+'</div>':'')+
+      (pend?'<div class="t2" style="margin-top:6px">Los círculos tenues son solicitudes pendientes o en proceso.</div>':'');
+  }
   function usesPass(a){var p=pOf(a);return !p||p.access==='pass'||!!a.pass}
   function nipMode(a){var p=pOf(a);return p?p.nip:'opt'}
   function status(a){
@@ -254,12 +321,12 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
   function accRow(a,btn){
     var s=status(a),p=pOf(a);
     return '<div class="row" data-open="'+a.id+'">'+av(p)+'<div class="main1"><div class="t1">'+esc(a.email)+'</div>'+
-      '<div class="t2">'+(p?esc(p.name)+' · ':'')+'<span class="'+s.c+'">'+s.t+'</span> · vence '+fmtS(a.exp)+'</div></div>'+
+      '<div class="t2">'+(p?esc(p.name)+' · ':'')+'<span class="'+s.c+'">'+s.t+'</span> · vence '+fmtS(a.exp)+'</div>'+slotDots(a)+'</div>'+
       (btn?'<button class="mini" data-act="cemail" data-id="'+a.id+'">Correo</button>'+(usesPass(a)?'<button class="mini" data-act="cpass" data-id="'+a.id+'">Clave</button>':''):'')+'</div>';
   }
   function reqRow(r){
     var a=find(r.acc),s=RS[r.status],p=a&&pOf(a);
-    return '<div class="row" data-oreq="'+r.id+'">'+av(p)+'<div class="main1"><div class="t1">'+esc(r.name)+(r.qty>1?' · '+r.qty+' perfiles':'')+'</div>'+
+    return '<div class="row" data-oreq="'+r.id+'">'+av(p)+'<div class="main1"><div class="t1">'+esc(r.name)+(r.qty>1&&!(r.names&&r.names.length)?' · '+r.qty+' perfiles':'')+'</div>'+
       '<div class="t2">'+(p?esc(p.name)+' · ':'')+(a?esc(a.email):'Cuenta eliminada')+'</div></div><span class="pill '+s[1]+'">'+s[0]+'</span></div>';
   }
   function tile(k,l,v){return '<button class="tile t-'+k+'" data-stat="'+k+'"><b>'+v+'</b><span>'+l+'</span></button>'}
@@ -374,7 +441,7 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
       (a.notes?'<label>Notas</label><div>'+esc(a.notes)+'</div>':'')+
       '<div class="acts"><button class="btn" data-act="cemail" data-id="'+id+'">Copiar correo</button>'+(pw?'<button class="btn" data-act="cpass" data-id="'+id+'">Copiar contraseña</button>':'')+'</div>'+
       '<div class="acts" style="margin-top:8px">'+(pw?'<button class="btn" data-act="cboth">Copiar ambos</button>':'')+'<button class="btn p" data-act="ficha">Copiar ficha</button></div>'+
-      '<h3>Perfiles y solicitudes ('+rs.length+')</h3>'+(rs.map(reqRow).join('')||'<p class="empty">Sin solicitudes.</p>')+
+      '<h3>Perfiles y solicitudes ('+rs.length+')</h3>'+fillBlock(a)+(rs.map(reqRow).join('')||'<p class="empty">Sin solicitudes.</p>')+
       '<div class="acts" style="margin-top:8px"><button class="btn" data-act="newreq" data-id="'+id+'">+ Nueva solicitud</button></div>'+
       '<h3>Cuenta</h3><div class="acts" style="margin-top:0"><button class="btn" data-act="editacc">Editar</button><button class="btn" data-act="renew">Renovar 30 días</button><button class="btn d" data-act="del">Eliminar</button></div>';
     open('det');
@@ -386,6 +453,7 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
     $('sheet').innerHTML=hd(esc(r.name))+
       '<div class="t2">'+(p?esc(p.name)+' · ':'')+(a?esc(a.email):'Cuenta eliminada')+'</div>'+
       '<div class="two" style="margin:12px 0 0"><div><div class="t2">Perfiles</div>'+r.qty+'</div><div><div class="t2">Fecha</div>'+fmt(r.date)+'</div></div>'+
+      '<label>Perfiles de esta solicitud</label><div class="pfs">'+reqNames(r).map(function(n){return pf(n,'')}).join('')+'</div>'+
       (r.pin?'<label>NIP</label><div class="pw"><span>'+esc(r.pin)+'</span><button class="mini" data-act="cpin">Copiar</button></div>':'')+
       (r.notes?'<label>Observaciones</label><div>'+esc(r.notes)+'</div>':'')+
       '<label for="rStat">Estado</label><select id="rStat">'+opts(Object.keys(RS).map(function(k){return [k,RS[k][0]]}),r.status)+'</select>'+
@@ -398,22 +466,57 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
   }
   function sheetNew(accId){
     if(!data.length){toast('Primero agrega una cuenta');return;}
-    var cur=accId||data[0].id;
+    var cur=accId||data[0].id;qNames=[];
     $('sheet').innerHTML=hd('Solicitud de perfil')+
       '<label for="qAcc">Cuenta asociada</label><select id="qAcc">'+opts(data.map(function(a){var p=pOf(a);return [a.id,(p?p.name+' · ':'')+a.email]}),cur)+'</select>'+
-      '<label for="qName">Nombre del perfil (opcional)</label><input id="qName" autocomplete="off" placeholder="Ej. Perfil familiar">'+
+      '<div style="display:flex;justify-content:space-between;align-items:baseline"><label style="margin-bottom:0">Perfiles de la cuenta</label><span class="t2" id="qCap"></span></div>'+
+      '<div class="pfs" id="qCircles"></div>'+
+      '<label for="qName">Agregar perfil</label><div class="addrow"><input id="qName" maxlength="24" autocomplete="off" placeholder="Nombre, ej. Sarahi"><button type="button" class="btn p" data-act="addname">+ Agregar</button></div>'+
+      '<p class="t2" style="margin:4px 0 0">Toca Agregar por cada perfil. Sin nombre se agrega «Perfil N». Toca un círculo nuevo para quitarlo.</p>'+
       '<div id="wNip"><label for="qPin" id="lNip">NIP (opcional)</label><input id="qPin" inputmode="numeric" autocomplete="off" placeholder="Ej. 1234"></div>'+
-      '<label for="qQty">Cantidad de perfiles</label><select id="qQty">'+opts([1,2,3,4,5].map(function(n){return [''+n,''+n]}),'1')+'</select>'+
       '<label for="qNotes">Observaciones (opcional)</label><textarea id="qNotes" rows="2" maxlength="200" placeholder="Ej. Para uso familiar"></textarea>'+
       '<div class="acts"><button class="btn p" data-act="savereq">Guardar solicitud</button><button class="btn" data-act="close">Cancelar</button></div>';
-    open('new');togNip();
+    open('new');togNip();drawQ();
+  }
+  /* círculos de perfiles dentro del formulario de solicitud */
+  function hasName(a,v){
+    var l=v.toLowerCase();
+    return slotsOf(a).some(function(s){return String(s.n).toLowerCase()===l})||qNames.some(function(n){return n.toLowerCase()===l});
+  }
+  function autoName(a){var n=slotsOf(a).length+qNames.length+1,v;do{v='Perfil '+n;n++}while(hasName(a,v));return v}
+  function pushName(a,v){
+    if(hasName(a,v)){toast('Ese nombre ya está en la cuenta');return false;}
+    if(qNames.length>=12){toast('Máximo 12 perfiles por solicitud');return false;}
+    qNames.push(v);drawQ();return true;
+  }
+  function addName(){
+    var a=find($('qAcc').value);if(!a)return;
+    var inp=$('qName'),v=inp.value.trim()||autoName(a);
+    if(pushName(a,v)){inp.value='';inp.focus();}
+  }
+  function drawQ(){
+    var el=$('qCircles'),a=el&&find($('qAcc').value);if(!a)return;
+    var old=slotsOf(a),m=maxOf(a),tot=old.length+qNames.length,h='',l=m-tot;
+    old.forEach(function(s){h+=pf(s.n,'o'+(s.done?'':' h'))});
+    qNames.forEach(function(n,i){h+=pf(n,'n'+(m&&old.length+i>=m?' ov':''),i)});
+    for(var k=tot;k<m;k++)h+=pfE();
+    el.innerHTML=h||'<span class="t2">Aún sin perfiles. Agrega el primero abajo.</span>';
+    var cap=$('qCap');
+    cap.textContent=m?tot+'/'+m+(tot>m?' · excede':tot===m?' · llena':' · '+l+(l===1?' libre':' libres')):tot+(tot===1?' perfil':' perfiles');
+    cap.className='t2'+(m&&tot>m?' bad':'');
   }
   function saveReq(){
+    if(mode!=='new')return;
     var a=find($('qAcc').value);if(!a)return;
     var m=nipMode(a),pin=m==='no'?'':$('qPin').value.trim();
     if(m==='req'&&!pin){toast('Esta plataforma necesita NIP');return;}
-    var n=reqs.filter(function(r){return r.acc===a.id}).length+1;
-    reqs.push({id:uid(),acc:a.id,name:$('qName').value.trim()||('Perfil '+n),pin:pin,qty:parseInt($('qQty').value,10)||1,notes:$('qNotes').value.trim(),status:'pend',date:iso(today())});
+    var typed=$('qName').value.trim();
+    if(typed&&!pushName(a,typed))return;
+    if(!qNames.length)pushName(a,autoName(a));
+    var f=fillInfo(a),tot=f.n+qNames.length;
+    if(f.m&&tot>f.m&&!confirm('Esta solicitud excede el límite de la cuenta ('+tot+' de '+f.m+' perfiles). ¿Guardar de todas formas?'))return;
+    var names=qNames.slice();qNames=[];
+    reqs.push({id:uid(),acc:a.id,name:names.join(', '),names:names,pin:pin,qty:names.length,notes:$('qNotes').value.trim(),status:'pend',date:iso(today())});
     save();close();view='reqs';tab='act';render();toast('✓ Solicitud guardada');
   }
 
@@ -421,31 +524,43 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
   function sheetPlats(){
     $('sheet').innerHTML=hd('Plataformas')+
       '<p class="t2" style="margin:0 0 6px">Cada plataforma tiene sus reglas y su texto de entrega. Toca una para editarla.</p>'+
-      plats.map(function(p){return '<div class="row" data-editp="'+p.id+'">'+av(p)+'<div class="main1"><div class="t1">'+esc(p.name)+'</div><div class="t2">'+(p.access==='code'?'Con código':'Con contraseña')+' · '+({no:'sin NIP',opt:'NIP opcional',req:'NIP obligatorio'})[p.nip]+' · garantía '+p.guar+' días</div></div><span class="t2">›</span></div>'}).join('')+
+      plats.map(function(p){return '<div class="row" data-editp="'+p.id+'">'+av(p)+'<div class="main1"><div class="t1">'+esc(p.name)+'</div><div class="t2">'+(p.access==='code'?'Con código':'Con contraseña')+' · '+({no:'sin NIP',opt:'NIP opcional',req:'NIP obligatorio'})[p.nip]+' · garantía '+p.guar+' días'+(p.max>0?' · '+p.max+' perfiles':'')+'</div></div><span class="t2">›</span></div>'}).join('')+
       '<h3>Agregar del catálogo</h3><div class="cat">'+CAT.filter(function(c){return !plats.some(function(p){var k=catFind(p.name);return k&&k[0]===c[0]})}).map(function(c){return '<button style="background:'+c[1]+'" data-cat="'+c[0]+'">+ '+c[0]+'</button>'}).join('')+'</div>'+
       '<div class="acts"><button class="btn p" data-act="newplat">+ Nueva plataforma</button></div>';
     open('plats');
   }
   function sheetPlatEdit(id,c){
     var p=pById(id);ed=p?p.id:'';
-    var d=p||{name:c?c[0]:'',access:c?c[2]:'pass',nip:c?c[3]:'no',guar:20,tpl:TPL,color:c?c[1]:''};
+    var d=p||{name:c?c[0]:'',access:c?c[2]:'pass',nip:c?c[3]:'no',guar:20,max:5,tpl:TPL,color:c?c[1]:''};
     var ins=[['plataforma','Plataforma'],['fecha','Fecha'],['vence','Vence'],['correo','Correo'],['contrasena','Contraseña'],['perfil','Perfil'],['nip','NIP'],['garantia','Garantía']];
     $('sheet').innerHTML=hd(p?'Editar plataforma':'Nueva plataforma')+
       '<label for="eName">Nombre en el mensaje (ej. VIX 1M)</label><input id="eName" list="catl" value="'+esc(d.name)+'" autocomplete="off"><datalist id="catl">'+CAT.map(function(x){return '<option value="'+x[0]+'">'}).join('')+'</datalist>'+
       '<div class="two"><div><label for="eAcc">Se entra con</label><select id="eAcc">'+opts([['pass','Contraseña'],['code','Código']],d.access)+'</select></div>'+
       '<div><label for="eNip">NIP</label><select id="eNip">'+opts([['no','No lleva'],['opt','Opcional'],['req','Obligatorio']],d.nip)+'</select></div></div>'+
-      '<label for="eGuar">Días de garantía</label><input id="eGuar" type="number" inputmode="numeric" value="'+d.guar+'">'+
+      '<div class="two"><div><label for="eGuar">Días de garantía</label><input id="eGuar" type="number" inputmode="numeric" value="'+d.guar+'"></div>'+
+      '<div><label for="eMax">Perfiles por cuenta</label><input id="eMax" type="number" inputmode="numeric" min="0" max="20" value="'+(d.max>0?d.max:'')+'" placeholder="Sin límite"></div></div>'+
+      '<p class="t2" style="margin:4px 0 0">El límite base marca cuándo una cuenta de esta plataforma está llena. Déjalo vacío si no quieres límite.</p>'+
+      '<div class="slots" id="eSlots"></div>'+
       '<label for="eCol">Color</label><input id="eCol" type="color" value="'+colorOf(d)+'">'+
       '<label for="eTpl">Texto de entrega</label><textarea id="eTpl" rows="9">'+esc(d.tpl)+'</textarea>'+
       '<div class="ins">'+ins.map(function(i){return '<button class="mini" data-ins="'+i[0]+'">'+i[1]+'</button>'}).join('')+'</div>'+
       '<p class="t2" style="margin:0">Toca un botón para insertar el dato donde está el cursor. Si un dato está vacío (por ejemplo el NIP), esa línea se omite sola.</p>'+
       '<label>Vista previa</label><pre class="prev" id="ePrev"></pre>'+
       '<div class="acts"><button class="btn p" data-act="saveplat">Guardar</button>'+(p?'<button class="btn d" data-act="delplat">Eliminar</button>':'<button class="btn" data-act="plats">Cancelar</button>')+'</div>';
-    open('platEdit');updPrev();
+    open('platEdit');updPrev();updSlots();
   }
   function updPrev(){
     var el=$('ePrev');if(!el)return;var i0=iso(today());
     el.textContent=build($('eTpl').value,{plataforma:$('eName').value.trim()||'PLATAFORMA',fecha:fmtL(i0),vence:fmtL(addDays(i0,DAYS)),correo:'cliente@correo.com',contrasena:$('eAcc').value==='pass'?'Clave123':'',perfil:'SARAHI',nip:$('eNip').value!=='no'?'1234':'',garantia:$('eGuar').value||''});
+  }
+
+  function updSlots(){
+    var el=$('eSlots'),mx=$('eMax');if(!el||!mx)return;
+    var n=parseInt(mx.value,10)||0;
+    if(n<=0){el.innerHTML='<span class="sl-t" style="margin-left:0">Sin límite definido</span>';return;}
+    n=Math.min(n,20);var col=$('eCol').value||'#9aa0b5',h='';
+    for(var i=0;i<n;i++)h+='<i class="sl f" style="background:'+col+'"></i>';
+    el.innerHTML=h+'<span class="sl-t">'+n+(n===1?' perfil':' perfiles')+' por cuenta</span>';
   }
 
   /* importar y respaldo */
@@ -493,6 +608,7 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
     }
     if((x=t.closest('[data-editp]'))){sheetPlatEdit(x.dataset.editp);return;}
     if((x=t.closest('[data-cat]'))){sheetPlatEdit('',catFind(x.dataset.cat));return;}
+    if((x=t.closest('[data-rmn]'))){qNames.splice(+x.dataset.rmn,1);drawQ();return;}
     var b=t.closest('[data-act]');
     if(b){
       var act=b.dataset.act,id=b.dataset.id||curId,a=id?find(id):null;
@@ -509,6 +625,7 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
       else if(act==='del'&&a){if(confirm('¿Eliminar esta cuenta y sus solicitudes?')){data=data.filter(function(y){return y.id!==a.id});reqs=reqs.filter(function(r){return r.acc!==a.id});save();close();render();toast('Cuenta eliminada');}}
       else if(act==='newreq')sheetNew(b.dataset.id||'');
       else if(act==='savereq')saveReq();
+      else if(act==='addname')addName();
       else if(act==='cpin'){var r1=reqById(curReq);if(r1)copy(r1.pin,'NIP');}
       else if(act==='rficha'){var r2=reqById(curReq),a2=r2&&find(r2.acc);if(a2)ficha(a2,r2);}
       else if(act==='rdel'){if(confirm('¿Eliminar esta solicitud?')){reqs=reqs.filter(function(r){return r.id!==curReq});save();close();render();}}
@@ -520,9 +637,10 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
       else if(act==='newplat')sheetPlatEdit('');
       else if(act==='saveplat'){
         var nm=$('eName').value.trim();if(!nm){toast('Escribe el nombre');return;}
-        var o={name:nm,access:$('eAcc').value,nip:$('eNip').value,guar:parseInt($('eGuar').value,10)||0,tpl:$('eTpl').value,color:$('eCol').value};
+        var mx=parseInt($('eMax').value,10)||0;if(mx<0||mx>20){toast('El límite va de 0 a 20 perfiles');return;}
+        var o={name:nm,access:$('eAcc').value,nip:$('eNip').value,guar:parseInt($('eGuar').value,10)||0,max:mx,tpl:$('eTpl').value,color:$('eCol').value};
         var cp=pById(ed);
-        if(cp){cp.name=o.name;cp.access=o.access;cp.nip=o.nip;cp.guar=o.guar;cp.tpl=o.tpl;cp.color=o.color;}else{o.id=uid();plats.push(o);}
+        if(cp){cp.name=o.name;cp.access=o.access;cp.nip=o.nip;cp.guar=o.guar;cp.max=o.max;cp.tpl=o.tpl;cp.color=o.color;}else{o.id=uid();plats.push(o);}
         save();render();sheetPlats();toast('✓ Plataforma guardada');
       }
       else if(act==='delplat'){
@@ -556,19 +674,23 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
     if(id==='fDate'){var v=e.target.value;$('fExp').value=v?fmt(addDays(v,DAYS)):'';}
     else if(id==='fSearch'){query=e.target.value;lim=15;$('alist').innerHTML=aList();}
     else if(id==='eName'||id==='eTpl'||id==='eGuar')updPrev();
+    else if(id==='eMax'||id==='eCol')updSlots();
   });
   document.addEventListener('change',function(e){
     var t=e.target;
     if(t.id==='fPlat')togglePass();
-    else if(t.id==='qAcc')togNip();
+    else if(t.id==='qAcc'){togNip();drawQ();}
     else if(t.id==='rStat'){var r=reqById(curReq);if(r){r.status=t.value;save();render();toast('✓ Estado actualizado');}}
     else if(t.id==='fPlatF'){fPlatF=t.value;lim=15;render();}
     else if(t.id==='fStat'){fStat=t.value;lim=15;render();}
     else if(t.id==='eNip'||t.id==='eAcc')updPrev();
-    else if(t.id==='eName'&&!ed){var c0=catFind(t.value);if(c0){$('eAcc').value=c0[2];$('eNip').value=c0[3];$('eCol').value=c0[1];updPrev();}}
+    else if(t.id==='eName'&&!ed){var c0=catFind(t.value);if(c0){$('eAcc').value=c0[2];$('eNip').value=c0[3];$('eCol').value=c0[1];updPrev();updSlots();}}
   });
   $('bd').addEventListener('click',close);
-  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&mode)close();});
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'&&mode)close();
+    else if(e.key==='Enter'&&e.target.id==='qName'){e.preventDefault();addName();}
+  });
 
   load();render();
 })();
