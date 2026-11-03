@@ -268,7 +268,7 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
     return '<div class="t2'+(f.over?' bad':'')+'" style="margin:2px 0 0">'+tx+'</div>'+(h?'<div class="pfs">'+h+'</div>':'')+
       (pend?'<div class="t2" style="margin-top:6px">Los círculos tenues son solicitudes pendientes o en proceso.</div>':'');
   }
-  function usesPass(a){var p=pOf(a);return !p||p.access==='pass'||!!a.pass}
+  function usesPass(a){if(a.code)return false;var p=pOf(a);return !p||p.access==='pass'||!!a.pass}
   function nipMode(a){var p=pOf(a);return p?p.nip:'opt'}
   function status(a){
     var d=daysLeft(a.exp);
@@ -314,7 +314,7 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
   }
   function ficha(a,r){
     var pl=pOf(a);if(!pl){toast('Elige una plataforma en Editar');return;}
-    copy(build(pl.tpl,{plataforma:pl.name,fecha:fmtL(r&&r.date?r.date:a.created),vence:fmtL(a.exp),correo:a.email,contrasena:a.pass||'',perfil:r?r.name:'',nip:r?r.pin:'',garantia:pl.guar?String(pl.guar):''}),'Mensaje');
+    copy(build(pl.tpl,{plataforma:pl.name,fecha:fmtL(r&&r.date?r.date:a.created),vence:fmtL(a.exp),correo:a.email,contrasena:usesPass(a)?(a.pass||''):'',perfil:r?r.name:'',nip:r?r.pin:'',garantia:pl.guar?String(pl.guar):''}),'Mensaje');
   }
 
   /* ---------- vistas ---------- */
@@ -384,17 +384,83 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
   function close(){mode=null;curId=null;curReq=null;showPw=false;$('bd').classList.remove('on');$('sheet').classList.remove('on');if(document.activeElement)document.activeElement.blur();}
   function hd(t){return '<div class="grab"></div><div class="sh"><h2>'+t+'</h2><button class="x" data-act="close">✕</button></div>'}
   function platSelect(id,sel){return '<select id="'+id+'"><option value="">— Sin plataforma —</option>'+opts(plats.map(function(p){return [p.id,p.name]}),sel)+'</select>'}
+  /* la contraseña solo se muestra si la cuenta se entra con contraseña */
   function togglePass(){
-    var s=$('fPlat');if(!s||!$('wPass'))return;
-    var p=pById(s.value);$('wPass').style.display=(p&&p.access==='code')?'none':'';
+    var s=$('fAcc');if(!s||!$('wPass'))return;
+    $('wPass').style.display=s.value==='code'?'none':'';
+  }
+  function platAcc(){var s=$('fPlat'),p=s&&pById(s.value);return p&&p.access==='code'?'code':'pass'}
+
+  /* ---------- detección de correo y contraseña en texto pegado ---------- */
+  var EMAIL_FIND=/[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)*\.[A-Za-z]{2,}/;
+  var PASS_LBL=/(?:^|[^A-Za-zÀ-ÿ0-9])(?:contrase[ñn]a|password|pass|clave|pwd|psw)[*~`]*(?:(\s*[:：=\-–—]\s*)|\s+)[*~`]*\s*(\S.*)$/i;
+  var NOPASS=/^(?:sin\b|no\b|ninguna?\b|n\/?a\b|-+$|c[oó]digo|code\b)/i;
+  var CODEHINT=/\b(?:sin\s+(?:contrase[ñn]a|clave|password|pass)|c[oó]digo)\b/i;
+  var DATE_TOK=/^\d{1,4}[\/\-.]\d{1,2}[\/\-.]\d{1,4}$/;
+  var PASTE_HINT='Pega el correo y la contraseña y se llenan solos. Si no hay contraseña, queda como «con código».';
+  function cleanVal(v){
+    v=v.trim();var w=v.charAt(0),e=v.charAt(v.length-1);
+    if(v.length>1&&('*~`"\''.indexOf(w)>-1&&e===w||w==='“'&&e==='”'||w==='‘'&&e==='’'))v=v.slice(1,-1);
+    return v.trim();
+  }
+  function knownName(tok){
+    var l=tok.toLowerCase();
+    return plats.some(function(p){return String(p.name).toLowerCase()===l})||CAT.some(function(c){return c[0].toLowerCase()===l});
+  }
+  function detectCred(txt){
+    var out={email:'',pass:''};
+    var t=String(txt||'').normalize('NFC').replace(/[​-‏‪-‮﻿]/g,'');
+    if(!t.trim())return out;
+    var m=t.match(EMAIL_FIND);if(m)out.email=m[0];
+    var lines=t.split(/\r?\n/),labeled=false,i,mm,v;
+    /* 1) contraseña con etiqueta: "Contraseña: abc", "*Clave:* abc", "pass abc" */
+    for(i=0;i<lines.length&&!labeled;i++){
+      mm=lines[i].match(PASS_LBL);if(!mm)continue;
+      labeled=true;v=mm[2];
+      if(!mm[1])v=v.split(/\s+/)[0];
+      v=v.split(/\s+(?:correo|e-?mail|nip|pin|perfil|usuario|user|fecha)\s*[:=]/i)[0];
+      if(out.email&&v.indexOf(out.email)>-1)v=v.slice(0,v.indexOf(out.email));
+      v=cleanVal(v);
+      if(v&&!NOPASS.test(v))out.pass=v;
+    }
+    /* 2) sin etiqueta: la palabra que va justo después del correo (misma línea o línea siguiente) */
+    if(!out.pass&&!labeled&&m&&!CODEHINT.test(t.replace(out.email,' '))){
+      var li=-1;for(i=0;i<lines.length;i++)if(lines[i].indexOf(out.email)>-1){li=i;break}
+      var rest=lines[li].slice(lines[li].indexOf(out.email)+out.email.length).replace(/^[\s,;:|\/\-–—]+/,'');
+      var tok=(rest.match(/^\S+/)||[''])[0];
+      if(!tok){
+        for(i=li+1;i<lines.length;i++){var nl=lines[i].trim();if(!nl)continue;if(/^\S+$/.test(nl)&&nl.indexOf('@')<0)tok=nl;break}
+      }
+      tok=cleanVal(tok);
+      if(tok&&/[A-Za-z0-9À-ÿ]/.test(tok)&&!DATE_TOK.test(tok)&&!/[:：]$/.test(tok)&&!NOPASS.test(tok)&&!knownName(tok)&&tok.indexOf('@')<0)out.pass=tok;
+    }
+    return out;
+  }
+  function applyPaste(){
+    var ta=$('fPaste'),st=$('pStat');if(!ta||!st)return;
+    if(!ta.value.trim()){st.className='t2';st.textContent=PASTE_HINT;return;}
+    var r=detectCred(ta.value);
+    if(!r.email&&!r.pass){st.className='t2 warn';st.textContent='No encontré correo ni contraseña en el texto.';return;}
+    if(r.email){
+      $('fEmail').value=r.email;$('fPass').value=r.pass;$('fAcc').value=r.pass?'pass':'code';
+      st.className='t2 '+(r.pass?'ok':'info');
+      st.textContent=r.pass?'✓ Correo y contraseña detectados.':'✓ Correo detectado. No hay contraseña: se guarda como «con código».';
+    }else{
+      $('fPass').value=r.pass;$('fAcc').value='pass';
+      st.className='t2 warn';st.textContent='Detecté la contraseña, pero no el correo. Escríbelo abajo.';
+    }
+    togglePass();
   }
 
   function sheetAcc(id){
     var a=id?find(id):null;ed=a?id:'';
     var d=a||{plat:lastPlat,email:'',pass:'',created:iso(today()),notes:''};
+    var dp=pById(d.plat),accMode=a?((a.code||!a.pass)?'code':'pass'):(dp&&dp.access==='code'?'code':'pass');
     $('sheet').innerHTML=hd(a?'Editar cuenta':'Nueva cuenta')+
+      (a?'':'<label for="fPaste">Pegar datos de la cuenta (opcional)</label><textarea id="fPaste" rows="2" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="correo@ejemplo.com clave123"></textarea><div class="t2" id="pStat" style="margin-top:4px">'+PASTE_HINT+'</div>')+
       '<label for="fPlat">Plataforma / servicio</label>'+platSelect('fPlat',d.plat)+
       '<label for="fEmail">Correo electrónico</label><input id="fEmail" type="email" autocomplete="off" autocapitalize="none" value="'+esc(d.email)+'" placeholder="correo@ejemplo.com">'+
+      '<label for="fAcc">Se entra con</label><select id="fAcc">'+opts([['pass','Contraseña'],['code','Código']],accMode)+'</select>'+
       '<div id="wPass"><label for="fPass">Contraseña</label><input id="fPass" type="text" autocomplete="off" autocapitalize="none" value="'+esc(d.pass)+'" placeholder="contraseña"></div>'+
       '<div class="two"><div><label for="fDate">Fecha de creación</label><input id="fDate" type="date" value="'+d.created+'"></div>'+
       '<div><label>Vence (30 días)</label><input id="fExp" readonly value="'+fmt(addDays(d.created,DAYS))+'"></div></div>'+
@@ -411,9 +477,9 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
     if(mode!=='acc')return; /* evita guardar dos veces con un doble toque */
     var cur=ed?find(ed):null;
     if(ed&&!cur){close();return;}
-    var em=$('fEmail').value.trim(),pid=$('fPlat').value,dt=$('fDate').value,pl=pById(pid);
-    var code=!!(pl&&pl.access==='code');
-    /* en plataformas de código se conserva la contraseña ya guardada al editar */
+    var em=$('fEmail').value.trim(),pid=$('fPlat').value,dt=$('fDate').value;
+    var code=$('fAcc').value==='code';
+    /* en cuentas de código se conserva la contraseña ya guardada al editar */
     var pw=code?(cur?(cur.pass||''):''):$('fPass').value.trim();
     if(!em||(!pw&&!code)){toast(code?'Escribe el correo':'Escribe correo y contraseña');return;}
     if(!EMAIL_RE.test(em)){toast('Correo no válido');return;}
@@ -422,12 +488,12 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
     if(!(cur&&cur.created===dt)&&(dt<'2020-01-01'||dt>addDays(iso(today()),365))){toast('Fecha fuera de rango');return;}
     if(dupAcc(em,pid,ed)&&!confirm('Ya existe una cuenta con ese correo en esta plataforma. ¿Guardar de todas formas?'))return;
     var nt=$('fNotes').value.trim();
-    if(cur){cur.email=em;cur.pass=pw;cur.plat=pid;cur.created=dt;cur.exp=addDays(dt,DAYS);cur.notes=nt;}
-    else data.push({id:uid(),email:em,pass:pw,plat:pid,created:dt,exp:addDays(dt,DAYS),notes:nt});
+    if(cur){cur.email=em;cur.pass=pw;cur.code=code;cur.plat=pid;cur.created=dt;cur.exp=addDays(dt,DAYS);cur.notes=nt;}
+    else data.push({id:uid(),email:em,pass:pw,code:code,plat:pid,created:dt,exp:addDays(dt,DAYS),notes:nt});
     lastPlat=pid;try{localStorage.setItem('cuentas-lastplat',pid)}catch(e){}
     save();render();
     if(ed){sheetDet(ed);toast('✓ Cuenta actualizada');return;}
-    if(again){$('fEmail').value='';$('fPass').value='';$('fEmail').focus();toast('✓ Guardada, agrega otra');}
+    if(again){$('fEmail').value='';$('fPass').value='';$('fPaste').value='';$('fAcc').value=platAcc();togglePass();applyPaste();$('fPaste').focus();toast('✓ Guardada, agrega otra');}
     else{close();toast('✓ Cuenta guardada');}
   }
 
@@ -580,7 +646,7 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
       c=c.map(function(x){return x.trim()});
       var em=c[0],pw=code?'':(c[1]||''),dt=parseD(code?c[1]:c[2])||iso(today());
       if(!em||em.indexOf('@')<0||(!pw&&!code)){bad++;return;}
-      data.push({id:uid(),email:em,pass:pw,plat:pid,created:dt,exp:addDays(dt,DAYS),notes:''});n++;
+      data.push({id:uid(),email:em,pass:pw,code:code,plat:pid,created:dt,exp:addDays(dt,DAYS),notes:''});n++;
     });
     save();render();close();toast('✓ '+n+' importadas'+(bad?' · '+bad+' omitidas':''));
   }
@@ -675,10 +741,12 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
     else if(id==='fSearch'){query=e.target.value;lim=15;$('alist').innerHTML=aList();}
     else if(id==='eName'||id==='eTpl'||id==='eGuar')updPrev();
     else if(id==='eMax'||id==='eCol')updSlots();
+    else if(id==='fPaste')applyPaste();
   });
   document.addEventListener('change',function(e){
     var t=e.target;
-    if(t.id==='fPlat')togglePass();
+    if(t.id==='fPlat'){var pt=$('fPaste');if(!(pt&&pt.value.trim()))$('fAcc').value=platAcc();togglePass();}
+    else if(t.id==='fAcc')togglePass();
     else if(t.id==='qAcc'){togNip();drawQ();}
     else if(t.id==='rStat'){var r=reqById(curReq);if(r){r.status=t.value;save();render();toast('✓ Estado actualizado');}}
     else if(t.id==='fPlatF'){fPlatF=t.value;lim=15;render();}
