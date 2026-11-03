@@ -335,13 +335,27 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
       '<div class="acts"><button class="btn p" data-act="saveacc">Guardar</button>'+(a?'':'<button class="btn" data-act="saveacc2">Guardar y agregar otra</button>')+'</div>';
     open('acc');togglePass();
   }
+  var EMAIL_RE=/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  function dupAcc(em,pid,skip){
+    var e=em.toLowerCase();
+    return data.some(function(a){return a.id!==skip&&a.plat===pid&&String(a.email||'').toLowerCase()===e});
+  }
   function saveAcc(again){
+    if(mode!=='acc')return; /* evita guardar dos veces con un doble toque */
+    var cur=ed?find(ed):null;
+    if(ed&&!cur){close();return;}
     var em=$('fEmail').value.trim(),pid=$('fPlat').value,dt=$('fDate').value,pl=pById(pid);
-    var code=!!(pl&&pl.access==='code'),pw=code?'':$('fPass').value;
+    var code=!!(pl&&pl.access==='code');
+    /* en plataformas de código se conserva la contraseña ya guardada al editar */
+    var pw=code?(cur?(cur.pass||''):''):$('fPass').value.trim();
     if(!em||(!pw&&!code)){toast(code?'Escribe el correo':'Escribe correo y contraseña');return;}
+    if(!EMAIL_RE.test(em)){toast('Correo no válido');return;}
     if(!dt){toast('Elige la fecha');return;}
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(dt)){toast('Fecha no válida');return;}
+    if(!(cur&&cur.created===dt)&&(dt<'2020-01-01'||dt>addDays(iso(today()),365))){toast('Fecha fuera de rango');return;}
+    if(dupAcc(em,pid,ed)&&!confirm('Ya existe una cuenta con ese correo en esta plataforma. ¿Guardar de todas formas?'))return;
     var nt=$('fNotes').value.trim();
-    if(ed){var a=find(ed);a.email=em;a.pass=pw;a.plat=pid;a.created=dt;a.exp=addDays(dt,DAYS);a.notes=nt;}
+    if(cur){cur.email=em;cur.pass=pw;cur.plat=pid;cur.created=dt;cur.exp=addDays(dt,DAYS);cur.notes=nt;}
     else data.push({id:uid(),email:em,pass:pw,plat:pid,created:dt,exp:addDays(dt,DAYS),notes:nt});
     lastPlat=pid;try{localStorage.setItem('cuentas-lastplat',pid)}catch(e){}
     save();render();
