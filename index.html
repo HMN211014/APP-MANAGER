@@ -145,6 +145,8 @@ input[type=color]{padding:3px;height:44px}
 .tli b{display:block;font-weight:600;font-size:.9rem}
 .tli span{display:block;font-size:.8rem;color:var(--mut)}
 .tli em{font-style:normal}
+@media (max-width:859px){.nav button{font-size:.72rem;padding-left:0;padding-right:0}}
+.av.rd{border-radius:50%}
 </style>
 </head>
 <body>
@@ -153,6 +155,7 @@ input[type=color]{padding:3px;height:44px}
   <nav class="nav">
     <button data-v="home">Inicio</button>
     <button data-v="accs">Cuentas</button>
+    <button data-v="profs">Perfiles</button>
     <button class="plus" data-act="plus" aria-label="Nuevo"><i>+</i><span>Nuevo</span></button>
     <button data-v="reqs">Solicitudes</button>
     <button data-v="more">Más</button>
@@ -229,7 +232,7 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
     return L.map(function(p){return '<div class="row" data-pf="'+p.id+'">'+av(p)+'<div class="main1"><div class="t1">'+esc(p.name)+'</div><div class="pbar"><b style="width:'+Math.round(cnt[p.id]/mx*100)+'%;background:'+colorOf(p)+'"></b></div></div><b>'+cnt[p.id]+'</b></div>'}).join('');
   }
   /* ---------- perfiles y ocupación de cuentas ---------- */
-  var qNames=[];
+  var qNames=[],curPi=0,pq='',pStatF='all';
   function nameColor(n){var h=0;n=String(n).toLowerCase();for(var i=0;i<n.length;i++)h=(h*31+n.charCodeAt(i))>>>0;return PAL[h%PAL.length]}
   /* nombres de los perfiles de una solicitud (las solicitudes anteriores solo traen nombre y cantidad) */
   function reqNames(r){
@@ -400,6 +403,42 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
       (it.length?it.map(reqRow).join(''):'<p class="empty">'+(tab==='act'?'No hay solicitudes activas.':'Aún no hay historial.')+'</p>')+
       '<button class="btn p" style="width:100%;margin-top:18px" data-act="newreq">Nueva solicitud</button>';
   }
+  /* ---------- sección Perfiles: cada nombre de cada solicitud es un perfil, se agregan solos ---------- */
+  function metaOf(r,i){var m=r.meta&&r.meta[i]||{};return{cli:m.cli||'',tel:m.tel||'',nt:m.nt||''}}
+  function profIni(n){return esc((Array.from(String(n))[0]||'?').toUpperCase())}
+  function allProfs(){
+    var all=[];
+    reqs.forEach(function(r){reqNames(r).forEach(function(n,i){all.push({r:r,i:i,n:n})})});
+    return all;
+  }
+  function profRow(p){
+    var a=find(p.r.acc),pl=a&&pOf(a),m=metaOf(p.r,p.i),ts=rTime(p.r);
+    return '<div class="row" data-oprof="'+p.r.id+'" data-pi="'+p.i+'"><i class="av rd" style="background:'+nameColor(p.n)+'">'+profIni(p.n)+'</i>'+
+      '<div class="main1"><div class="t1">'+esc(p.n)+(m.cli?' · '+esc(m.cli):'')+'</div>'+
+      '<div class="t2">'+(pl?esc(pl.name)+' · ':'')+(a?esc(a.email):'Cuenta eliminada')+(m.tel?' · '+esc(m.tel):'')+'</div>'+
+      '<div class="t2">'+(ts?'<span class="'+ts.c+'">'+ts.t+'</span> · vence '+fmtS(reqExp(p.r))+(p.r.ren?' · renovable':''):'Cancelado')+'</div></div></div>';
+  }
+  function profList(){
+    var all=allProfs(),q=pq.trim().toLowerCase();
+    var it=all.filter(function(p){
+      var a=find(p.r.acc),pl=a&&pOf(a),m=metaOf(p.r,p.i),ts=rTime(p.r),k=ts?ts.k:'canc';
+      if(pStatF==='all'?k==='canc':k!==pStatF)return false;
+      return !q||[p.n,m.cli,m.tel,m.nt,a?a.email:'',pl?pl.name:''].join(' ').toLowerCase().indexOf(q)>-1;
+    }).sort(function(x,y){
+      var cx=x.r.status==='canc',cy=y.r.status==='canc';if(cx!==cy)return cx?1:-1;
+      var ex=reqExp(x.r),ey=reqExp(y.r);return ex<ey?-1:ex>ey?1:x.n.localeCompare(y.n);
+    });
+    if(!it.length)return '<p class="empty">'+(all.length?'Sin resultados.':'Aún no hay perfiles. Se agregan solos cuando creas una solicitud.')+'</p>';
+    return it.slice(0,lim).map(profRow).join('')+(it.length>lim?'<button class="btn" style="width:100%;margin-top:12px" data-act="pmore">Mostrar más ('+(it.length-lim)+')</button>':'');
+  }
+  function vProfs(){
+    var n=allProfs().filter(function(p){return p.r.status!=='canc'}).length;
+    return '<h1>Perfiles</h1><p class="sub0">'+n+(n===1?' perfil':' perfiles')+' en total</p>'+
+      '<input id="pSearch" type="search" placeholder="Buscar por nombre, cliente o teléfono" value="'+esc(pq)+'" autocomplete="off">'+
+      '<select id="pStat" style="margin-top:8px">'+opts([['all','Todos (sin cancelados)'],['ok','Vigentes'],['warn','Por vencer'],['bad','Vencidos'],['canc','Cancelados']],pStatF)+'</select>'+
+      '<div id="plist">'+profList()+'</div>'+
+      '<button class="btn p" style="width:100%;margin-top:18px" data-act="newreq">+ Nuevo perfil</button>';
+  }
   function mi(a,t,s){return '<button class="menu" data-act="'+a+'"><b>'+t+'</b><small>'+s+'</small></button>'}
   function vMore(){
     return '<h1>Más</h1><p class="sub0">Ajustes y herramientas</p>'+
@@ -409,7 +448,7 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
   }
   function render(){
     var m=$('view');
-    m.innerHTML=view==='home'?vHome():view==='accs'?vAccs():view==='reqs'?vReqs():vMore();
+    m.innerHTML=view==='home'?vHome():view==='accs'?vAccs():view==='reqs'?vReqs():view==='profs'?vProfs():vMore();
     var bs=document.querySelectorAll('.nav [data-v]');
     for(var i=0;i<bs.length;i++)bs[i].classList.toggle('on',bs[i].dataset.v===view);
   }
@@ -564,6 +603,42 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
       '<div class="acts">'+(r.ren&&r.status!=='canc'?'<button class="btn p" data-act="rren">Renovar 30 días</button>':'')+(a?'<button class="btn'+(r.ren&&r.status!=='canc'?'':' p')+'" data-act="rficha">Copiar ficha</button>':'')+'<button class="btn d" data-act="rdel">Eliminar</button></div>';
     open('req');
   }
+  /* renovar el tiempo de una solicitud (lo usan el detalle de la solicitud y el del perfil) */
+  function renewReq(r,again){
+    if(!r||!r.ren||r.status==='canc')return;
+    if(!confirm('¿Renovar este perfil? Su tiempo se reinicia hoy y vence en 30 días.'))return;
+    r.exp=addDays(iso(today()),DAYS);r.renewals=(r.renewals||[]).concat(iso(today()));
+    save();render();again(r);toast('✓ Perfil renovado');
+  }
+  function sheetProf(rid,i){
+    var r=reqById(rid);if(!r){close();return;}
+    var names=reqNames(r);if(i<0||i>=names.length){close();return;}
+    curReq=rid;curPi=i;
+    var a=find(r.acc),pl=a&&pOf(a),m=metaOf(r,i),n=names[i],col=nameColor(n);
+    $('sheet').innerHTML=hd(esc(n))+
+      '<div class="ban" style="background:'+col+'22"><i class="av rd" style="background:'+col+'">'+profIni(n)+'</i><div class="main1"><div class="t1" style="font-size:1.05rem">'+esc(n)+'</div><div class="t2">'+(pl?esc(pl.name)+' · ':'')+(a?esc(a.email):'Cuenta eliminada')+'</div></div></div>'+
+      '<label for="pName">Nombre del perfil</label><input id="pName" maxlength="24" autocomplete="off" value="'+esc(n)+'">'+
+      '<label for="pCli">Cliente (quién es)</label><input id="pCli" maxlength="60" autocomplete="off" value="'+esc(m.cli)+'" placeholder="Nombre del cliente">'+
+      '<label for="pTel">Teléfono o contacto</label><input id="pTel" maxlength="40" inputmode="tel" autocomplete="off" value="'+esc(m.tel)+'" placeholder="Ej. 55 1234 5678">'+
+      '<label for="pNt">Notas</label><textarea id="pNt" rows="2" maxlength="200" placeholder="Ej. Pagó en efectivo">'+esc(m.nt)+'</textarea>'+
+      '<div class="acts"><button class="btn p" data-act="saveprof">Guardar</button>'+(a?'<button class="btn" data-act="pficha">Copiar ficha</button>':'')+'</div>'+
+      '<h3>Cronología del perfil</h3>'+(names.length>1?'<div class="t2">Su tiempo corre junto con los otros '+(names.length-1)+(names.length===2?' perfil':' perfiles')+' de la solicitud.</div>':'')+timeline(r)+
+      '<div class="acts" style="margin-top:12px">'+(r.ren&&r.status!=='canc'?'<button class="btn" data-act="prren">Renovar 30 días</button>':'')+'<button class="btn" data-act="preq">Ver solicitud</button></div>';
+    open('prof');
+  }
+  function saveProf(){
+    if(mode!=='prof')return;
+    var r=reqById(curReq);if(!r)return;
+    var i=curPi,names=reqNames(r).slice();if(i<0||i>=names.length)return;
+    var nm=$('pName').value.trim();
+    if(!nm){toast('Escribe el nombre del perfil');return;}
+    var a=find(r.acc),l=nm.toLowerCase();
+    if(a&&reqs.some(function(q){return q.acc===a.id&&q.status!=='canc'&&reqNames(q).some(function(x,j){return !(q===r&&j===i)&&String(x).toLowerCase()===l})})){toast('Ese nombre ya está en la cuenta');return;}
+    names[i]=nm;r.names=names;r.name=names.join(', ');r.qty=names.length;
+    var meta=(r.meta||[]).slice();while(meta.length<names.length)meta.push({cli:'',tel:'',nt:''});
+    meta[i]={cli:$('pCli').value.trim(),tel:$('pTel').value.trim(),nt:$('pNt').value.trim()};r.meta=meta;
+    save();close();render();toast('✓ Perfil actualizado');
+  }
   function togNip(){
     var s=$('qAcc');if(!s)return;var a=find(s.value),m=a?nipMode(a):'opt';
     $('wNip').style.display=m==='no'?'none':'';$('lNip').textContent=m==='req'?'NIP (obligatorio)':'NIP (opcional)';
@@ -578,6 +653,8 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
       '<label for="qName">Agregar perfil</label><div class="addrow"><input id="qName" maxlength="24" autocomplete="off" placeholder="Nombre, ej. Sarahi"><button type="button" class="btn p" data-act="addname">+ Agregar</button></div>'+
       '<p class="t2" style="margin:4px 0 0">Toca Agregar por cada perfil. Sin nombre se agrega «Perfil N». Toca un círculo nuevo para quitarlo.</p>'+
       '<div id="wNip"><label for="qPin" id="lNip">NIP (opcional)</label><input id="qPin" inputmode="numeric" autocomplete="off" placeholder="Ej. 1234"></div>'+
+      '<div class="two"><div><label for="qCli">Cliente (opcional)</label><input id="qCli" maxlength="60" autocomplete="off" placeholder="¿Quién es?"></div>'+
+      '<div><label for="qTel">Teléfono (opcional)</label><input id="qTel" maxlength="40" inputmode="tel" autocomplete="off" placeholder="Contacto"></div></div>'+
       '<label for="qRen">Renovable</label><select id="qRen">'+opts([['0','No · solo vence a los 30 días'],['1','Sí · se podrá renovar']],'0')+'</select>'+
       '<p class="t2" style="margin:4px 0 0">El tiempo del perfil corre solo, desde hoy, aparte del de la cuenta.</p>'+
       '<label for="qNotes">Observaciones (opcional)</label><textarea id="qNotes" rows="2" maxlength="200" placeholder="Ej. Para uso familiar"></textarea>'+
@@ -622,9 +699,10 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
     var f=fillInfo(a),tot=f.n+qNames.length;
     if(f.m&&tot>f.m&&!confirm('Esta solicitud excede el límite de la cuenta ('+tot+' de '+f.m+' perfiles). ¿Guardar de todas formas?'))return;
     var names=qNames.slice();qNames=[];
-    var d0=iso(today());
-    reqs.push({id:uid(),acc:a.id,name:names.join(', '),names:names,pin:pin,qty:names.length,notes:$('qNotes').value.trim(),status:'pend',date:d0,exp:addDays(d0,DAYS),ren:$('qRen').value==='1',renewals:[]});
-    save();close();view='reqs';tab='act';render();toast('✓ Solicitud guardada');
+    var d0=iso(today()),cli=$('qCli').value.trim(),tel=$('qTel').value.trim();
+    reqs.push({id:uid(),acc:a.id,name:names.join(', '),names:names,pin:pin,qty:names.length,notes:$('qNotes').value.trim(),status:'pend',date:d0,exp:addDays(d0,DAYS),ren:$('qRen').value==='1',renewals:[],
+      meta:names.map(function(){return{cli:cli,tel:tel,nt:''}})});
+    save();close();view=(view==='profs'?'profs':'reqs');tab='act';render();toast('✓ '+(names.length===1?'Perfil agregado':names.length+' perfiles agregados'));
   }
 
   /* plataformas */
@@ -720,7 +798,8 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
     if(b){
       var act=b.dataset.act,id=b.dataset.id||curId,a=id?find(id):null;
       if(act==='close')close();
-      else if(act==='plus'){if(view==='reqs')sheetNew();else sheetAcc();}
+      else if(act==='plus'){if(view==='reqs'||view==='profs')sheetNew();else sheetAcc();}
+      else if(act==='pmore'){lim+=15;$('plist').innerHTML=profList();}
       else if(act==='more'){lim+=15;$('alist').innerHTML=aList();}
       else if(act==='cemail'&&a)copy(a.email,'Correo');
       else if(act==='cpass'&&a)copy(a.pass,'Contraseña');
@@ -734,12 +813,13 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
       else if(act==='savereq')saveReq();
       else if(act==='addname')addName();
       else if(act==='cpin'){var r1=reqById(curReq);if(r1)copy(r1.pin,'NIP');}
-      else if(act==='rren'){
-        var r5=reqById(curReq);
-        if(r5&&r5.ren&&r5.status!=='canc'&&confirm('¿Renovar este perfil? Su tiempo se reinicia hoy y vence en 30 días.')){
-          r5.exp=addDays(iso(today()),DAYS);r5.renewals=(r5.renewals||[]).concat(iso(today()));
-          save();render();sheetReq(r5.id);toast('✓ Perfil renovado');
-        }
+      else if(act==='rren')renewReq(reqById(curReq),function(x){sheetReq(x.id)});
+      else if(act==='prren')renewReq(reqById(curReq),function(x){sheetProf(x.id,curPi)});
+      else if(act==='saveprof')saveProf();
+      else if(act==='preq'){if(curReq)sheetReq(curReq);}
+      else if(act==='pficha'){
+        var r7=reqById(curReq),a7=r7&&find(r7.acc),nm7=reqNames(r7||{})[curPi];
+        if(a7)ficha(a7,{name:($('pName')&&$('pName').value.trim())||nm7,pin:r7.pin,date:r7.date});
       }
       else if(act==='rficha'){var r2=reqById(curReq),a2=r2&&find(r2.acc);if(a2)ficha(a2,r2);}
       else if(act==='rdel'){if(confirm('¿Eliminar esta solicitud?')){reqs=reqs.filter(function(r){return r.id!==curReq});save();close();render();}}
@@ -779,6 +859,7 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
       }
       return;
     }
+    if((x=t.closest('[data-oprof]'))){sheetProf(x.dataset.oprof,+x.dataset.pi);return;}
     if((x=t.closest('[data-open]'))){showPw=false;sheetDet(x.dataset.open);return;}
     if((x=t.closest('[data-oreq]'))){sheetReq(x.dataset.oreq);return;}
   });
@@ -790,6 +871,7 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
     else if(id==='eName'||id==='eTpl'||id==='eGuar')updPrev();
     else if(id==='eMax'||id==='eCol')updSlots();
     else if(id==='fPaste')applyPaste();
+    else if(id==='pSearch'){pq=e.target.value;lim=15;$('plist').innerHTML=profList();}
   });
   document.addEventListener('change',function(e){
     var t=e.target;
@@ -800,6 +882,7 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
     else if(t.id==='rRen'){var r6=reqById(curReq);if(r6){r6.ren=t.value==='1';save();render();sheetReq(r6.id);toast(r6.ren?'✓ Perfil renovable':'✓ Perfil no renovable');}}
     else if(t.id==='fPlatF'){fPlatF=t.value;lim=15;render();}
     else if(t.id==='fStat'){fStat=t.value;lim=15;render();}
+    else if(t.id==='pStat'){pStatF=t.value;lim=15;render();}
     else if(t.id==='eNip'||t.id==='eAcc')updPrev();
     else if(t.id==='eName'&&!ed){var c0=catFind(t.value);if(c0){$('eAcc').value=c0[2];$('eNip').value=c0[3];$('eCol').value=c0[1];updPrev();updSlots();}}
   });
