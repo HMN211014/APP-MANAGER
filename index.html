@@ -135,6 +135,16 @@ input[type=color]{padding:3px;height:44px}
 .pf.e i{background:none;border:2px dashed var(--mut);opacity:.45}
 .pf .rm{position:absolute;top:-3px;right:3px;width:17px;height:17px;border-radius:50%;background:var(--fg);color:var(--bg);font-size:.6rem;font-weight:600;display:grid;place-items:center}
 .addrow{display:flex;gap:8px}.addrow .btn{flex:none}
+.pf.late i{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--bad)}
+.tl{margin-top:10px}
+.tli{position:relative;display:flex;gap:12px;padding-bottom:14px}
+.tli:last-child{padding-bottom:0}
+.tli:not(:last-child)::before{content:"";position:absolute;left:5px;top:16px;bottom:-2px;width:2px;background:var(--line)}
+.tld{width:12px;height:12px;border-radius:50%;margin-top:4px;flex:none;background:currentColor}
+.tld.end{background:var(--bg);border:2px solid currentColor}
+.tli b{display:block;font-weight:600;font-size:.9rem}
+.tli span{display:block;font-size:.8rem;color:var(--mut)}
+.tli em{font-style:normal}
 </style>
 </head>
 <body>
@@ -229,10 +239,30 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
     for(var i=1;i<=q;i++)o.push(b+' '+i);
     return o;
   }
-  /* perfiles que ocupan una cuenta: todas las solicitudes menos las canceladas */
+  /* ---------- tiempo de cada perfil: cronología propia, separada de la de la cuenta ---------- */
+  /* corre desde el ingreso del perfil; las solicitudes anteriores calculan su vencimiento desde su fecha */
+  function reqExp(r){return r.exp||addDays(r.date||iso(today()),DAYS)}
+  function reqStart(r){var rn=r.renewals;return rn&&rn.length?rn[rn.length-1]:(r.date||iso(today()))}
+  function rTime(r){
+    if(r.status==='canc')return null;
+    var s=status({exp:reqExp(r)});s.t=s.t.replace('Vencida','Vencido'); /* perfil, no cuenta */
+    return s;
+  }
+  function timeline(r){
+    var ev=[{d:r.date||iso(today()),t:'Ingreso del perfil',c:'ok'}],h='',e=reqExp(r),s=rTime(r),bar='';
+    (r.renewals||[]).forEach(function(x){ev.push({d:x,t:'Renovado',c:'info'})});
+    ev.forEach(function(x){h+='<div class="tli"><i class="tld '+x.c+'"></i><div><b>'+x.t+'</b><span>'+fmt(x.d)+'</span></div></div>'});
+    if(s){
+      h+='<div class="tli"><i class="tld end '+s.c+'"></i><div><b>'+(daysLeft(e)<0?'Venció':'Vence')+'</b><span>'+fmt(e)+' · <em class="'+s.c+'">'+s.t+'</em></span></div></div>';
+      var st=reqStart(r),tot=Math.max(1,Math.round((parse(e)-parse(st))/86400000)),el=Math.round((today()-parse(st))/86400000);
+      bar='<div class="pbar" style="margin:2px 0 4px"><b style="width:'+Math.max(0,Math.min(100,Math.round(el/tot*100)))+'%;background:var(--'+s.c+')"></b></div>';
+    }else h+='<div class="tli"><i class="tld end" style="color:var(--mut)"></i><div><b>Cancelada</b><span>Sin cuenta regresiva</span></div></div>';
+    return bar+'<div class="tl">'+h+'</div>';
+  }
+  /* perfiles que ocupan una cuenta: todas las solicitudes menos las canceladas (los vencidos se marcan, pero siguen contando) */
   function slotsOf(a){
     var out=[];
-    reqs.forEach(function(r){if(r.acc!==a.id||r.status==='canc')return;reqNames(r).forEach(function(n){out.push({n:n,done:r.status==='done'})})});
+    reqs.forEach(function(r){if(r.acc!==a.id||r.status==='canc')return;var late=daysLeft(reqExp(r))<0;reqNames(r).forEach(function(n){out.push({n:n,done:r.status==='done',late:late})})});
     return out;
   }
   function maxOf(a){var p=pOf(a);return p&&p.max>0?p.max:0}
@@ -261,12 +291,14 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
   }
   /* círculos con nombre para el detalle de la cuenta */
   function fillBlock(a){
-    var f=fillInfo(a),h='',pend=false;
-    f.u.forEach(function(s,i){if(!s.done)pend=true;h+=pf(s.n,(s.done?'':'h')+(f.m&&i>=f.m?' ov':''))});
+    var f=fillInfo(a),h='',pend=false,late=0;
+    f.u.forEach(function(s,i){if(!s.done)pend=true;if(s.late)late++;h+=pf(s.n,(s.done?'':'h')+(f.m&&i>=f.m?' ov':'')+(s.late?' late':''))});
     for(var k=f.n;k<f.m;k++)h+=pfE();
     var l=f.m-f.n,tx=f.m?f.n+' de '+f.m+' perfiles'+(f.over?' · excede el límite':f.full?' · cuenta llena':' · '+l+(l===1?' libre':' libres')):f.n+(f.n===1?' perfil':' perfiles')+' · sin límite definido';
+    if(late)tx+=' · '+late+(late===1?' vencido':' vencidos');
     return '<div class="t2'+(f.over?' bad':'')+'" style="margin:2px 0 0">'+tx+'</div>'+(h?'<div class="pfs">'+h+'</div>':'')+
-      (pend?'<div class="t2" style="margin-top:6px">Los círculos tenues son solicitudes pendientes o en proceso.</div>':'');
+      (pend?'<div class="t2" style="margin-top:6px">Los círculos tenues son solicitudes pendientes o en proceso.</div>':'')+
+      (late?'<div class="t2" style="margin-top:6px">Los círculos con aro rojo tienen el tiempo vencido: renuévalos o cancela su solicitud para liberar el espacio.</div>':'');
   }
   function usesPass(a){if(a.code)return false;var p=pOf(a);return !p||p.access==='pass'||!!a.pass}
   function nipMode(a){var p=pOf(a);return p?p.nip:'opt'}
@@ -325,9 +357,11 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
       (btn?'<button class="mini" data-act="cemail" data-id="'+a.id+'">Correo</button>'+(usesPass(a)?'<button class="mini" data-act="cpass" data-id="'+a.id+'">Clave</button>':''):'')+'</div>';
   }
   function reqRow(r){
-    var a=find(r.acc),s=RS[r.status],p=a&&pOf(a);
+    var a=find(r.acc),s=RS[r.status],p=a&&pOf(a),ts=rTime(r);
     return '<div class="row" data-oreq="'+r.id+'">'+av(p)+'<div class="main1"><div class="t1">'+esc(r.name)+(r.qty>1&&!(r.names&&r.names.length)?' · '+r.qty+' perfiles':'')+'</div>'+
-      '<div class="t2">'+(p?esc(p.name)+' · ':'')+(a?esc(a.email):'Cuenta eliminada')+'</div></div><span class="pill '+s[1]+'">'+s[0]+'</span></div>';
+      '<div class="t2">'+(p?esc(p.name)+' · ':'')+(a?esc(a.email):'Cuenta eliminada')+'</div>'+
+      (ts?'<div class="t2"><span class="'+ts.c+'">'+ts.t+'</span> · vence '+fmtS(reqExp(r))+(r.ren?' · renovable':'')+'</div>':'')+
+      '</div><span class="pill '+s[1]+'">'+s[0]+'</span></div>';
   }
   function tile(k,l,v){return '<button class="tile t-'+k+'" data-stat="'+k+'"><b>'+v+'</b><span>'+l+'</span></button>'}
   function isAct(r){return r.status==='pend'||r.status==='proc'}
@@ -336,10 +370,12 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
     var n={ok:0,warn:0,bad:0};data.forEach(function(a){n[status(a).k]++});
     var act=reqs.filter(isAct);
     var soon=data.filter(function(a){return daysLeft(a.exp)<=5}).sort(byExp).slice(0,6);
+    var psoon=reqs.filter(function(r){return r.status!=='canc'&&daysLeft(reqExp(r))<=5}).sort(function(x,y){var a1=reqExp(x),b1=reqExp(y);return a1<b1?-1:a1>b1?1:0});
     return '<div class="hero"><h1>Inicio</h1><p>Resumen de tus cuentas y solicitudes</p><div class="big">'+data.length+' cuentas</div><p>'+(n.warn+n.bad?(n.warn+n.bad)+' requieren atención':'Todo al día')+'</p></div>'+
       '<div class="tiles">'+tile('all','Total',data.length)+tile('ok','Activas',n.ok)+tile('warn','Por vencer',n.warn)+tile('bad','Vencidas',n.bad)+
       '<button class="tile t-reqs" data-go="reqs"><b>'+act.length+'</b><span>Solicitudes</span></button></div>'+
       '<h3>Próximos vencimientos</h3>'+(soon.length?soon.map(function(a){return accRow(a)}).join(''):'<p class="empty">Nada por vencer en los próximos 5 días.</p>')+
+      '<h3>Perfiles por vencer</h3>'+(psoon.length?psoon.slice(0,6).map(reqRow).join('')+(psoon.length>6?'<p class="t2" style="margin:8px 2px 0">y '+(psoon.length-6)+' más en Solicitudes</p>':''):'<p class="empty">Ningún perfil por vencer en los próximos 5 días.</p>')+
       '<h3>Por plataforma</h3>'+byPlat()+'<h3>Solicitudes pendientes</h3>'+(act.length?act.slice(-4).reverse().map(reqRow).join(''):'<p class="empty">No hay solicitudes pendientes.</p>');
   }
   function aList(){
@@ -518,12 +554,14 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
     curReq=id;var a=find(r.acc),p=a&&pOf(a);
     $('sheet').innerHTML=hd(esc(r.name))+
       '<div class="t2">'+(p?esc(p.name)+' · ':'')+(a?esc(a.email):'Cuenta eliminada')+'</div>'+
-      '<div class="two" style="margin:12px 0 0"><div><div class="t2">Perfiles</div>'+r.qty+'</div><div><div class="t2">Fecha</div>'+fmt(r.date)+'</div></div>'+
+      '<div class="two" style="margin:12px 0 0"><div><div class="t2">Perfiles</div>'+r.qty+'</div><div><div class="t2">Ingreso</div>'+fmt(r.date)+'</div></div>'+
       '<label>Perfiles de esta solicitud</label><div class="pfs">'+reqNames(r).map(function(n){return pf(n,'')}).join('')+'</div>'+
+      '<h3>Cronología del perfil</h3>'+timeline(r)+
+      '<label for="rRen">Renovable</label><select id="rRen">'+opts([['0','No · solo vence a los 30 días'],['1','Sí · se puede renovar']],r.ren?'1':'0')+'</select>'+
       (r.pin?'<label>NIP</label><div class="pw"><span>'+esc(r.pin)+'</span><button class="mini" data-act="cpin">Copiar</button></div>':'')+
       (r.notes?'<label>Observaciones</label><div>'+esc(r.notes)+'</div>':'')+
       '<label for="rStat">Estado</label><select id="rStat">'+opts(Object.keys(RS).map(function(k){return [k,RS[k][0]]}),r.status)+'</select>'+
-      '<div class="acts">'+(a?'<button class="btn p" data-act="rficha">Copiar ficha</button>':'')+'<button class="btn d" data-act="rdel">Eliminar</button></div>';
+      '<div class="acts">'+(r.ren&&r.status!=='canc'?'<button class="btn p" data-act="rren">Renovar 30 días</button>':'')+(a?'<button class="btn'+(r.ren&&r.status!=='canc'?'':' p')+'" data-act="rficha">Copiar ficha</button>':'')+'<button class="btn d" data-act="rdel">Eliminar</button></div>';
     open('req');
   }
   function togNip(){
@@ -540,6 +578,8 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
       '<label for="qName">Agregar perfil</label><div class="addrow"><input id="qName" maxlength="24" autocomplete="off" placeholder="Nombre, ej. Sarahi"><button type="button" class="btn p" data-act="addname">+ Agregar</button></div>'+
       '<p class="t2" style="margin:4px 0 0">Toca Agregar por cada perfil. Sin nombre se agrega «Perfil N». Toca un círculo nuevo para quitarlo.</p>'+
       '<div id="wNip"><label for="qPin" id="lNip">NIP (opcional)</label><input id="qPin" inputmode="numeric" autocomplete="off" placeholder="Ej. 1234"></div>'+
+      '<label for="qRen">Renovable</label><select id="qRen">'+opts([['0','No · solo vence a los 30 días'],['1','Sí · se podrá renovar']],'0')+'</select>'+
+      '<p class="t2" style="margin:4px 0 0">El tiempo del perfil corre solo, desde hoy, aparte del de la cuenta.</p>'+
       '<label for="qNotes">Observaciones (opcional)</label><textarea id="qNotes" rows="2" maxlength="200" placeholder="Ej. Para uso familiar"></textarea>'+
       '<div class="acts"><button class="btn p" data-act="savereq">Guardar solicitud</button><button class="btn" data-act="close">Cancelar</button></div>';
     open('new');togNip();drawQ();
@@ -582,7 +622,8 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
     var f=fillInfo(a),tot=f.n+qNames.length;
     if(f.m&&tot>f.m&&!confirm('Esta solicitud excede el límite de la cuenta ('+tot+' de '+f.m+' perfiles). ¿Guardar de todas formas?'))return;
     var names=qNames.slice();qNames=[];
-    reqs.push({id:uid(),acc:a.id,name:names.join(', '),names:names,pin:pin,qty:names.length,notes:$('qNotes').value.trim(),status:'pend',date:iso(today())});
+    var d0=iso(today());
+    reqs.push({id:uid(),acc:a.id,name:names.join(', '),names:names,pin:pin,qty:names.length,notes:$('qNotes').value.trim(),status:'pend',date:d0,exp:addDays(d0,DAYS),ren:$('qRen').value==='1',renewals:[]});
     save();close();view='reqs';tab='act';render();toast('✓ Solicitud guardada');
   }
 
@@ -693,6 +734,13 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
       else if(act==='savereq')saveReq();
       else if(act==='addname')addName();
       else if(act==='cpin'){var r1=reqById(curReq);if(r1)copy(r1.pin,'NIP');}
+      else if(act==='rren'){
+        var r5=reqById(curReq);
+        if(r5&&r5.ren&&r5.status!=='canc'&&confirm('¿Renovar este perfil? Su tiempo se reinicia hoy y vence en 30 días.')){
+          r5.exp=addDays(iso(today()),DAYS);r5.renewals=(r5.renewals||[]).concat(iso(today()));
+          save();render();sheetReq(r5.id);toast('✓ Perfil renovado');
+        }
+      }
       else if(act==='rficha'){var r2=reqById(curReq),a2=r2&&find(r2.acc);if(a2)ficha(a2,r2);}
       else if(act==='rdel'){if(confirm('¿Eliminar esta solicitud?')){reqs=reqs.filter(function(r){return r.id!==curReq});save();close();render();}}
       else if(act==='saveacc')saveAcc(false);
@@ -748,7 +796,8 @@ GARANTÍA DE {garantia} DÍAS SIEMPRE Y CUANDO SE RESPETEN LAS REGLAS 🙂‍↕
     if(t.id==='fPlat'){var pt=$('fPaste');if(!(pt&&pt.value.trim()))$('fAcc').value=platAcc();togglePass();}
     else if(t.id==='fAcc')togglePass();
     else if(t.id==='qAcc'){togNip();drawQ();}
-    else if(t.id==='rStat'){var r=reqById(curReq);if(r){r.status=t.value;save();render();toast('✓ Estado actualizado');}}
+    else if(t.id==='rStat'){var r=reqById(curReq);if(r){r.status=t.value;save();render();sheetReq(r.id);toast('✓ Estado actualizado');}}
+    else if(t.id==='rRen'){var r6=reqById(curReq);if(r6){r6.ren=t.value==='1';save();render();sheetReq(r6.id);toast(r6.ren?'✓ Perfil renovable':'✓ Perfil no renovable');}}
     else if(t.id==='fPlatF'){fPlatF=t.value;lim=15;render();}
     else if(t.id==='fStat'){fStat=t.value;lim=15;render();}
     else if(t.id==='eNip'||t.id==='eAcc')updPrev();
